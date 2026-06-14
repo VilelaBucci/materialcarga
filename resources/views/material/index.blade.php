@@ -21,10 +21,10 @@
                 <div class="col-6 col-md-2">
                     <select name="situacao" class="form-select form-select-sm">
                         <option value="">Situação</option>
-                        <option value="A" {{ request('situacao')=='A'?'selected':'' }}>Ativo</option>
-                        <option value="R" {{ request('situacao')=='R'?'selected':'' }}>Em Reparo</option>
-                        <option value="P" {{ request('situacao')=='P'?'selected':'' }}>Paralisado</option>
-                        <option value="D" {{ request('situacao')=='D'?'selected':'' }}>Desativado</option>
+                        <option value="A" {{ request('situacao')=='A'?'selected':'' }}>A</option>
+                        <option value="R" {{ request('situacao')=='R'?'selected':'' }}>R</option>
+                        <option value="P" {{ request('situacao')=='P'?'selected':'' }}>P</option>
+                        <option value="D" {{ request('situacao')=='D'?'selected':'' }}>D</option>
                     </select>
                 </div>
                 <div class="col-6 col-md-2">

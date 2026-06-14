@@ -46,7 +46,7 @@
         <a href="{{ route('material.index', ['situacao' => 'A']) }}" class="card-link">
             <div class="card text-center p-3 card-clickable">
                 <div class="fs-2 fw-bold text-success">{{ number_format($totais['ativos']) }}</div>
-                <div class="small text-muted">Ativos</div>
+                <div class="small text-muted">Situação A</div>
             </div>
         </a>
     </div>
@@ -54,7 +54,7 @@
         <a href="{{ route('material.index', ['situacao' => 'R']) }}" class="card-link">
             <div class="card text-center p-3 card-clickable">
                 <div class="fs-2 fw-bold text-danger">{{ number_format($totais['em_reparo']) }}</div>
-                <div class="small text-muted">Em Reparo</div>
+                <div class="small text-muted">Situação R</div>
             </div>
         </a>
     </div>
@@ -62,7 +62,7 @@
         <a href="{{ route('material.index', ['situacao' => 'P']) }}" class="card-link">
             <div class="card text-center p-3 card-clickable">
                 <div class="fs-2 fw-bold text-warning">{{ number_format($totais['paralisados']) }}</div>
-                <div class="small text-muted">Paralisados</div>
+                <div class="small text-muted">Situação P</div>
             </div>
         </a>
     </div>
@@ -129,10 +129,10 @@
                 @php
                     $total = $totais['total'] ?: 1;
                     $bars = [
-                        ['label' => 'Ativos',     'val' => $totais['ativos'],      'color' => 'success', 'situacao' => 'A'],
-                        ['label' => 'Em Reparo',  'val' => $totais['em_reparo'],   'color' => 'danger',  'situacao' => 'R'],
-                        ['label' => 'Paralisados','val' => $totais['paralisados'],  'color' => 'warning', 'situacao' => 'P'],
-                        ['label' => 'Sem Local',  'val' => $totais['sem_local'],    'color' => 'secondary','sem_local' => '1'],
+                        ['label' => 'Situação A', 'val' => $totais['ativos'],      'color' => 'success',  'situacao' => 'A'],
+                        ['label' => 'Situação R', 'val' => $totais['em_reparo'],   'color' => 'danger',   'situacao' => 'R'],
+                        ['label' => 'Situação P', 'val' => $totais['paralisados'], 'color' => 'warning',  'situacao' => 'P'],
+                        ['label' => 'Sem Local',  'val' => $totais['sem_local'],   'color' => 'secondary','sem_local' => '1'],
                     ];
                 @endphp
                 @foreach($bars as $bar)

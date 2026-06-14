@@ -44,13 +44,7 @@ class Material extends Model
 
     public function getSituacaoLabelAttribute(): string
     {
-        return match($this->situacao) {
-            'A' => 'Ativo',
-            'D' => 'Desativado',
-            'P' => 'Paralisado',
-            'R' => 'Em Reparo',
-            default => 'Indefinido',
-        };
+        return $this->situacao ?? '—';
     }
 
     public function getSituacaoBadgeAttribute(): string

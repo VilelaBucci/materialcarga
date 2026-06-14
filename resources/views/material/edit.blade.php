@@ -74,10 +74,10 @@
                         <label class="field-label">Situação</label>
                         <select name="situacao" class="form-select form-select-sm">
                             <option value="">— Indefinida —</option>
-                            <option value="A" {{ $material->situacao=='A'?'selected':'' }}>Ativo</option>
-                            <option value="R" {{ $material->situacao=='R'?'selected':'' }}>Em Reparo</option>
-                            <option value="P" {{ $material->situacao=='P'?'selected':'' }}>Paralisado</option>
-                            <option value="D" {{ $material->situacao=='D'?'selected':'' }}>Desativado</option>
+                            <option value="A" {{ $material->situacao=='A'?'selected':'' }}>A</option>
+                            <option value="R" {{ $material->situacao=='R'?'selected':'' }}>R</option>
+                            <option value="P" {{ $material->situacao=='P'?'selected':'' }}>P</option>
+                            <option value="D" {{ $material->situacao=='D'?'selected':'' }}>D</option>
                         </select>
                     </div>
 
