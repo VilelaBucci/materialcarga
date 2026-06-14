@@ -13,13 +13,14 @@ class AdminController extends Controller
     {
         if (!session('is_admin')) abort(403);
 
-        $setores = Setor::with('unidade')->orderBy('nome')->get();
+        $setores = Setor::where('unidade_id', session('unidade_id'))->orderBy('nome')->get();
         return view('admin.setores', compact('setores'));
     }
 
     public function atualizarSenha(Request $request, Setor $setor)
     {
         if (!session('is_admin')) abort(403);
+        if ((int)$setor->unidade_id !== (int)session('unidade_id')) abort(403);
 
         $request->validate([
             'senha' => 'required|string|min:4|max:50',
@@ -48,14 +49,14 @@ class AdminController extends Controller
             'senha_conf.same'      => 'A confirmação não confere com a nova senha.',
         ]);
 
-        $setor = Setor::find(session('setor_id'));
-        if (!session('is_master') && (!$setor || $setor->senha_adm !== $request->senha_atual)) {
+        $unidade = Unidade::find(session('unidade_id'));
+        if (!session('is_master') && (!$unidade || $unidade->senha_adm !== $request->senha_atual)) {
             return back()->withErrors(['senha_atual' => 'Senha atual incorreta.']);
         }
 
-        $setor->update(['senha_adm' => $request->senha_nova]);
+        $unidade->update(['senha_adm' => $request->senha_nova]);
 
-        return redirect()->route('admin.setores')->with('sucesso', 'Senha do administrador atualizada com sucesso.');
+        return redirect()->route('admin.setores')->with('sucesso', 'Senha do administrador da unidade atualizada com sucesso.');
     }
 
     // ── Senha Master ─────────────────────────────────────────────────────────
@@ -90,8 +91,7 @@ class AdminController extends Controller
 
     public function novaUnidade()
     {
-        $senhaAdmExiste = Setor::whereNotNull('senha_adm')->exists();
-        return view('admin.nova-unidade', compact('senhaAdmExiste'));
+        return view('admin.nova-unidade');
     }
 
     public function validarCsv(Request $request)
@@ -135,20 +135,15 @@ class AdminController extends Controller
             'csv'       => 'required|file|mimes:csv,txt|max:30720',
             'nome'      => 'required|string|max:200|unique:unidades,nome',
             'senha_ini' => 'required|string|min:4|max:50',
-            'senha_adm' => 'required|string',
+            'senha_adm' => 'required|string|min:6|max:50',
         ], [
             'nome.unique'      => 'Já existe uma unidade com este nome. Procure-a no primeiro select da página de login e faça o acesso normalmente.',
             'nome.required'    => 'Informe o nome da unidade.',
             'senha_ini.required' => 'Informe a senha inicial dos setores.',
             'senha_ini.min'    => 'A senha deve ter pelo menos 4 caracteres.',
             'senha_adm.required' => 'Informe a senha de administrador.',
+            'senha_adm.min'      => 'A senha de administrador deve ter pelo menos 6 caracteres.',
         ]);
-
-        // Verifica senha_adm
-        $senhaAdm = Setor::whereNotNull('senha_adm')->value('senha_adm');
-        if (!$senhaAdm || $request->senha_adm !== $senhaAdm) {
-            return back()->withErrors(['senha_adm' => 'Senha de administrador incorreta.'])->withInput();
-        }
 
         set_time_limit(300);
         ini_set('memory_limit', '512M');
@@ -171,8 +166,11 @@ class AdminController extends Controller
         }
 
         DB::transaction(function () use ($request, $linhas) {
-            // 1. Criar a Unidade
-            $unidade = Unidade::create(['nome' => $request->nome]);
+            // 1. Criar a Unidade com senha de administrador
+            $unidade = Unidade::create([
+                'nome'      => $request->nome,
+                'senha_adm' => $request->senha_adm,
+            ]);
 
             $agora     = now();
             $lote      = [];

@@ -15,10 +15,10 @@ class DashboardController extends Controller
 
         $verTodos = $isAdmin && session('ver_todos', false);
 
-        $query = Material::query();
+        // Sempre filtra pela unidade do usuário; em ver_todos remove o filtro de dependencia
+        $query = Material::query()->where('unidade_id', $unidadeId);
         if (!$verTodos) {
-            $query->where('dependencia', $setor)
-                  ->where('unidade_id', $unidadeId);
+            $query->where('dependencia', $setor);
         }
 
         $totais = [

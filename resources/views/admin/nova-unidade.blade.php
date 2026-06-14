@@ -142,21 +142,16 @@
 
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold small">
-                                    Senha de administrador <span class="text-danger">*</span>
+                                    Senha de administrador da unidade <span class="text-danger">*</span>
                                 </label>
                                 <input type="password" name="senha_adm"
                                     class="form-control @error('senha_adm') is-invalid @enderror"
-                                    required autocomplete="current-password"
-                                    placeholder="Senha mestre do sistema">
+                                    required minlength="6" maxlength="50" autocomplete="new-password"
+                                    placeholder="Mínimo 6 caracteres">
                                 @error('senha_adm')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
-                                @if(!$senhaAdmExiste)
-                                <div class="form-text text-warning">
-                                    <i class="bi bi-exclamation-triangle"></i>
-                                    Nenhuma senha de administrador cadastrada. Configure primeiro acessando o sistema.
-                                </div>
-                                @endif
+                                <div class="form-text">Permite entrar como admin em qualquer setor desta unidade.</div>
                             </div>
 
                             <div class="col-12">

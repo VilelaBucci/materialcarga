@@ -20,7 +20,7 @@
         </div>
         <div class="col-auto">
             <span class="badge bg-primary fs-6">{{ number_format($r['atualizados'], 0, ',', '.') }}</span>
-            <span class="small ms-1">atualizados</span>
+            <span class="small ms-1">com dados alterados</span>
         </div>
         <div class="col-auto">
             <span class="badge bg-success fs-6">{{ number_format($r['inseridos'], 0, ',', '.') }}</span>

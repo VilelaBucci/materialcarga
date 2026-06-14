@@ -36,12 +36,12 @@ class AuthController extends Controller
             return back()->withErrors(['setor_id' => 'Setor não pertence à unidade selecionada.'])->withInput();
         }
 
-        $senhaCorreta = $request->senha === $setor->senha;
+        $senhaCorreta = $setor->senha && $request->senha === $setor->senha;
         $isAdmin      = false;
         $isMaster     = false;
 
-        // Senha admin da unidade (específica deste setor)
-        if ($setor->senha_adm && $request->senha === $setor->senha_adm) {
+        // Senha admin da unidade — dá acesso admin a qualquer setor dessa unidade
+        if ($unidade->senha_adm && $request->senha === $unidade->senha_adm) {
             $senhaCorreta = true;
             $isAdmin      = true;
         }
@@ -83,13 +83,14 @@ class AuthController extends Controller
             'senha.required'    => 'Informe a senha.',
         ]);
 
-        $setor = Setor::with('unidade')->find($request->setor_id);
+        $setor   = Setor::with('unidade')->find($request->setor_id);
+        $unidade = Unidade::find($setor->unidade_id);
 
-        $senhaCorreta = $request->senha === $setor->senha;
+        $senhaCorreta = $setor->senha && $request->senha === $setor->senha;
         $isAdmin      = false;
         $isMaster     = false;
 
-        if ($setor->senha_adm && $request->senha === $setor->senha_adm) {
+        if ($unidade && $unidade->senha_adm && $request->senha === $unidade->senha_adm) {
             $senhaCorreta = true;
             $isAdmin      = true;
         }

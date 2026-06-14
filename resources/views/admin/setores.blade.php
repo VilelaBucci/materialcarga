@@ -11,9 +11,14 @@
 {{-- Alterar senha do administrador --}}
 <div class="card mb-3">
     <div class="card-header">
-        <i class="bi bi-shield-lock"></i> Minha Senha (Administrador)
+        <i class="bi bi-shield-lock"></i> Senha de Administrador da Unidade
     </div>
     <div class="card-body">
+        <p class="small text-muted mb-3">
+            <i class="bi bi-info-circle"></i>
+            Esta senha permite entrar como <strong>administrador em qualquer setor</strong> desta unidade.
+            Ao alterar aqui, a mudança vale para todos os setores.
+        </p>
         <form action="{{ route('admin.senha.adm') }}" method="POST" class="row g-2 align-items-end">
             @csrf
             @method('PUT')

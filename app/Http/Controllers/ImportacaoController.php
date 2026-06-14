@@ -113,6 +113,11 @@ class ImportacaoController extends Controller
             $numBmp = $this->intVal($c[3]);
             if (!$numBmp) continue;           // linha sem BMP é ignorada
             if (isset($bmpVistos[$numBmp])) continue; // BMP duplicado no CSV: mantém o primeiro
+
+            // Ignora linhas de outra dependência — evita importar CSV errado
+            $depCsv = $this->ns($c[0]);
+            if ($depCsv && $depCsv !== $setor) continue;
+
             $bmpVistos[$numBmp] = true;
 
             $csvFields = [
@@ -132,18 +137,18 @@ class ImportacaoController extends Controller
                 'valor_depreciacao' => $this->dec($c[12]),
                 'valor_liquido'     => $this->dec($c[13]),
                 'situacao'          => $this->ns($c[14]),
-                'updated_at'        => $agora,
+                // updated_at excluído aqui: MySQL retorna 0 se dados idênticos
             ];
 
             if (isset($idxBmp[$numBmp])) {
-                // BMP existe no sistema → atualiza
+                // BMP existe no sistema → atualiza apenas se dados mudaram
                 $id = $idxBmp[$numBmp];
-                DB::table('materiais')->where('id', $id)->update($csvFields);
+                $changed = DB::table('materiais')->where('id', $id)->update($csvFields);
                 $idsMatchados[$id] = true;
-                $atualizados++;
+                if ($changed) $atualizados++;
             } else {
                 // BMP novo → insere
-                $loteInsert[] = array_merge($csvFields, ['created_at' => $agora]);
+                $loteInsert[] = array_merge($csvFields, ['created_at' => $agora, 'updated_at' => $agora]);
                 $inseridos++;
 
                 if (count($loteInsert) >= $loteSize) {
