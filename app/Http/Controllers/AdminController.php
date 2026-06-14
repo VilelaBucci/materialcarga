@@ -38,8 +38,10 @@ class AdminController extends Controller
     {
         if (!session('is_admin')) abort(403);
 
+        $isMaster = session('is_master');
+
         $request->validate([
-            'senha_atual' => 'required|string',
+            'senha_atual' => $isMaster ? 'nullable|string' : 'required|string',
             'senha_nova'  => 'required|string|min:6|max:50',
             'senha_conf'  => 'required|string|same:senha_nova',
         ], [

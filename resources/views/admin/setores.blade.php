@@ -22,12 +22,14 @@
         <form action="{{ route('admin.senha.adm') }}" method="POST" class="row g-2 align-items-end">
             @csrf
             @method('PUT')
+            @if(!session('is_master'))
             <div class="col-md-3">
                 <label class="form-label small fw-semibold">Senha atual</label>
                 <input type="password" name="senha_atual" class="form-control form-control-sm @error('senha_atual') is-invalid @enderror"
                     placeholder="Senha atual" required autocomplete="current-password">
                 @error('senha_atual')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
+            @endif
             <div class="col-md-3">
                 <label class="form-label small fw-semibold">Nova senha</label>
                 <input type="password" name="senha_nova" class="form-control form-control-sm @error('senha_nova') is-invalid @enderror"

@@ -11,11 +11,10 @@ class ImportacaoController extends Controller
     {
         if (!session('is_admin')) abort(403);
 
-        $setor     = session('setor_nome');
         $unidadeId = session('unidade_id');
 
         $backups = DB::table('materiais_backup')
-            ->where('dependencia', $setor)->where('unidade_id', $unidadeId)
+            ->where('unidade_id', $unidadeId)
             ->selectRaw('backup_label, MIN(backup_at) as backup_at, COUNT(*) as total')
             ->groupBy('backup_label')
             ->orderByDesc('backup_at')
@@ -40,7 +39,6 @@ class ImportacaoController extends Controller
         set_time_limit(300);
         ini_set('memory_limit', '512M');
 
-        $setor     = session('setor_nome');
         $unidadeId = session('unidade_id');
 
         // ── 1. Ler e converter encoding ──────────────────────────────────────
@@ -50,11 +48,9 @@ class ImportacaoController extends Controller
         }
 
         $linhas = preg_split('/\r\n|\r|\n/', trim($conteudo));
-        $header = array_shift($linhas); // guarda cabeçalho para validação
-
+        $header = array_shift($linhas);
         $linhas = array_filter($linhas, fn($l) => trim($l) !== '');
 
-        // ── 1a. Validar cabeçalho do CSV ─────────────────────────────────────
         if (!$this->headerValido($header)) {
             return back()->withErrors(['csv' => 'O arquivo não parece ser um CSV do SILOMS. Verifique se o arquivo contém as colunas Nº BMP e Nº SISPAT (mínimo 15 colunas separadas por ponto e vírgula).']);
         }
@@ -63,7 +59,7 @@ class ImportacaoController extends Controller
             return back()->withErrors(['csv' => 'O arquivo está vazio ou sem dados após o cabeçalho.']);
         }
 
-        // ── 2. Backup apenas dos materiais da unidade atual ──────────────────
+        // ── 2. Backup de TODOS os materiais da unidade ───────────────────────
         $agora       = now();
         $backupLabel = $request->file('csv')->getClientOriginalName() . ' — ' . $agora->format('d/m/Y H:i');
 
@@ -78,50 +74,72 @@ class ImportacaoController extends Controller
                 quantidade, valor_atualizado, valor_depreciacao, valor_liquido,
                 situacao, em_uso, funcionando, mais_informacoes, responsavel_id, local_id
             FROM materiais
-            WHERE dependencia = ? AND unidade_id = ?
-        ", [$agora, $backupLabel, $setor, $unidadeId]);
+            WHERE unidade_id = ?
+        ", [$agora, $backupLabel, $unidadeId]);
 
         $totalBackup = DB::table('materiais_backup')
             ->where('backup_label', $backupLabel)->count();
 
-        // ── 3. Índice BMP → id dos materiais atuais do setor ────────────────
-        // orderBy garante que duplicatas de BMP no sistema resolvem para o maior id
+        // ── 3. Índice BMP → id de TODOS os materiais da unidade ─────────────
         $idxBmp = DB::table('materiais')
-            ->where('dependencia', $setor)->where('unidade_id', $unidadeId)
+            ->where('unidade_id', $unidadeId)
             ->whereNotNull('num_bmp')
             ->orderBy('id')
             ->pluck('id', 'num_bmp')
             ->toArray();
 
-        // Todos os IDs presentes antes da importação (para saber o que excluir)
         $idsAntes = DB::table('materiais')
-            ->where('dependencia', $setor)->where('unidade_id', $unidadeId)
+            ->where('unidade_id', $unidadeId)
             ->pluck('id')->flip()->toArray();
 
         // ── 4. Processar CSV — chave única: Nº BMP ───────────────────────────
-        $atualizados  = 0;
-        $inseridos    = 0;
-        $idsMatchados = [];
-        $loteInsert   = [];
-        $loteSize     = 500;
-        $bmpVistos    = []; // evita processar BMP duplicado dentro do próprio CSV
+        $atualizados      = 0;
+        $inseridos        = 0;
+        $idsMatchados     = [];
+        $loteInsert       = [];
+        $loteSize         = 500;
+        $bmpVistos        = [];
+        $setoresChecados  = []; // cache para evitar queries repetidas de setor
 
         foreach ($linhas as $linha) {
             $c = str_getcsv(trim($linha), ';');
             if (count($c) < 15) continue;
 
             $numBmp = $this->intVal($c[3]);
-            if (!$numBmp) continue;           // linha sem BMP é ignorada
-            if (isset($bmpVistos[$numBmp])) continue; // BMP duplicado no CSV: mantém o primeiro
+            if (!$numBmp) continue;
+            if (isset($bmpVistos[$numBmp])) continue;
 
-            // Ignora linhas de outra dependência — evita importar CSV errado
             $depCsv = $this->ns($c[0]);
-            if ($depCsv && $depCsv !== $setor) continue;
+            if (!$depCsv) continue; // linha sem dependência é ignorada
 
             $bmpVistos[$numBmp] = true;
 
+            // Auto-cria setor se esta dependência ainda não existe na unidade
+            if (!isset($setoresChecados[$depCsv])) {
+                $existe = DB::table('setores')
+                    ->where('nome', $depCsv)
+                    ->where('unidade_id', $unidadeId)
+                    ->exists();
+
+                if (!$existe) {
+                    $partes = explode(' - ', $depCsv, 2);
+                    $sigla  = mb_strtoupper(mb_substr(trim($partes[0]), 0, 10));
+                    DB::table('setores')->insert([
+                        'nome'       => $depCsv,
+                        'sigla'      => $sigla,
+                        'senha'      => null,
+                        'senha_adm'  => null,
+                        'unidade_id' => $unidadeId,
+                        'created_at' => $agora,
+                        'updated_at' => $agora,
+                    ]);
+                }
+
+                $setoresChecados[$depCsv] = true;
+            }
+
             $csvFields = [
-                'dependencia'       => $setor,
+                'dependencia'       => $depCsv,
                 'unidade_id'        => $unidadeId,
                 'conta'             => $this->ns($c[1]),
                 'classe'            => $this->ns($c[2]),
@@ -137,17 +155,14 @@ class ImportacaoController extends Controller
                 'valor_depreciacao' => $this->dec($c[12]),
                 'valor_liquido'     => $this->dec($c[13]),
                 'situacao'          => $this->ns($c[14]),
-                // updated_at excluído aqui: MySQL retorna 0 se dados idênticos
             ];
 
             if (isset($idxBmp[$numBmp])) {
-                // BMP existe no sistema → atualiza apenas se dados mudaram
-                $id = $idxBmp[$numBmp];
+                $id      = $idxBmp[$numBmp];
                 $changed = DB::table('materiais')->where('id', $id)->update($csvFields);
                 $idsMatchados[$id] = true;
                 if ($changed) $atualizados++;
             } else {
-                // BMP novo → insere
                 $loteInsert[] = array_merge($csvFields, ['created_at' => $agora, 'updated_at' => $agora]);
                 $inseridos++;
 
@@ -166,7 +181,7 @@ class ImportacaoController extends Controller
         $bmpNovos = array_diff(array_keys($bmpVistos), array_keys($idxBmp));
         if (!empty($bmpNovos)) {
             $idsNovos = DB::table('materiais')
-                ->where('dependencia', $setor)->where('unidade_id', $unidadeId)
+                ->where('unidade_id', $unidadeId)
                 ->whereIn('num_bmp', $bmpNovos)
                 ->pluck('id');
             foreach ($idsNovos as $id) {
@@ -174,8 +189,8 @@ class ImportacaoController extends Controller
             }
         }
 
-        // ── 6. Exclui o que estava no sistema mas não veio no CSV ────────────
-        $excluidos = 0;
+        // ── 6. Exclui o que estava na unidade mas não veio no CSV ────────────
+        $excluidos      = 0;
         $idsParaExcluir = array_diff(array_keys($idsAntes), array_keys($idsMatchados));
         if (!empty($idsParaExcluir)) {
             $excluidos = count($idsParaExcluir);

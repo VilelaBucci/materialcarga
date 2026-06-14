@@ -16,7 +16,9 @@ class DashboardController extends Controller
         $verTodos = $isAdmin && session('ver_todos', false);
 
         // Sempre filtra pela unidade do usuário; em ver_todos remove o filtro de dependencia
-        $query = Material::query()->where('unidade_id', $unidadeId);
+        $query = Material::query()
+            ->where('unidade_id', $unidadeId)
+            ->where('conta', 'not like', '%87 - MATERIAL DE CONSUMO DE USO DURADOURO%');
         if (!$verTodos) {
             $query->where('dependencia', $setor);
         }
