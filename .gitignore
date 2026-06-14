@@ -1,0 +1,44 @@
+# Dependências
+/vendor
+/node_modules
+
+# Variáveis de ambiente (NUNCA versionar)
+.env
+.env.backup
+.env.production
+.env.*.local
+
+# Build / assets compilados
+/public/build
+/public/hot
+/public/storage
+
+# Cache do framework
+/bootstrap/cache/*.php
+/storage/*.key
+/storage/pail
+
+# Logs e dumps
+*.log
+*.sql
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# IDEs e editores
+/.idea
+/.vscode
+/.cursor/
+/.zed
+/.nova
+/.codex
+.phpactor.json
+
+# Laravel / PHPUnit
+.phpunit.result.cache
+/.phpunit.cache
+/auth.json
+_ide_helper.php
+Homestead.json
+Homestead.yaml

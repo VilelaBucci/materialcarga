@@ -1,0 +1,268 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Setor;
+use App\Models\Unidade;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class AdminController extends Controller
+{
+    public function setores()
+    {
+        if (!session('is_admin')) abort(403);
+
+        $setores = Setor::with('unidade')->orderBy('nome')->get();
+        return view('admin.setores', compact('setores'));
+    }
+
+    public function atualizarSenha(Request $request, Setor $setor)
+    {
+        if (!session('is_admin')) abort(403);
+
+        $request->validate([
+            'senha' => 'required|string|min:4|max:50',
+        ], [
+            'senha.required' => 'Informe a nova senha.',
+            'senha.min'      => 'A senha deve ter pelo menos 4 caracteres.',
+        ]);
+
+        $setor->update(['senha' => $request->senha]);
+
+        return redirect()->route('admin.setores')->with('sucesso', "Senha do setor {$setor->nome} atualizada.");
+    }
+
+    public function atualizarSenhaAdm(Request $request)
+    {
+        if (!session('is_admin')) abort(403);
+
+        $request->validate([
+            'senha_atual' => 'required|string',
+            'senha_nova'  => 'required|string|min:6|max:50',
+            'senha_conf'  => 'required|string|same:senha_nova',
+        ], [
+            'senha_atual.required' => 'Informe a senha atual.',
+            'senha_nova.required'  => 'Informe a nova senha.',
+            'senha_nova.min'       => 'A nova senha deve ter pelo menos 6 caracteres.',
+            'senha_conf.same'      => 'A confirmação não confere com a nova senha.',
+        ]);
+
+        $setor = Setor::find(session('setor_id'));
+        if (!session('is_master') && (!$setor || $setor->senha_adm !== $request->senha_atual)) {
+            return back()->withErrors(['senha_atual' => 'Senha atual incorreta.']);
+        }
+
+        $setor->update(['senha_adm' => $request->senha_nova]);
+
+        return redirect()->route('admin.setores')->with('sucesso', 'Senha do administrador atualizada com sucesso.');
+    }
+
+    // ── Senha Master ─────────────────────────────────────────────────────────
+
+    public function masterForm()
+    {
+        if (!session('is_master')) abort(403);
+        return view('admin.master');
+    }
+
+    public function masterAtualizar(Request $request)
+    {
+        if (!session('is_master')) abort(403);
+
+        $request->validate([
+            'senha_nova' => 'required|string|min:8|max:100',
+            'senha_conf' => 'required|string|same:senha_nova',
+        ], [
+            'senha_nova.required' => 'Informe a nova senha master.',
+            'senha_nova.min'      => 'A senha master deve ter pelo menos 8 caracteres.',
+            'senha_conf.same'     => 'A confirmação não confere.',
+        ]);
+
+        DB::table('configuracoes')
+            ->where('chave', 'senha_master')
+            ->update(['valor' => $request->senha_nova, 'updated_at' => now()]);
+
+        return back()->with('sucesso', 'Senha master atualizada com sucesso.');
+    }
+
+    // ── Nova Unidade (público, mas exige senha_adm) ───────────────────────────
+
+    public function novaUnidade()
+    {
+        $senhaAdmExiste = Setor::whereNotNull('senha_adm')->exists();
+        return view('admin.nova-unidade', compact('senhaAdmExiste'));
+    }
+
+    public function validarCsv(Request $request)
+    {
+        $request->validate(['csv' => 'required|file|mimes:csv,txt|max:30720']);
+
+        $conteudo = file_get_contents($request->file('csv')->getRealPath());
+        if (!mb_check_encoding($conteudo, 'UTF-8')) {
+            $conteudo = mb_convert_encoding($conteudo, 'UTF-8', 'Windows-1252');
+        }
+
+        $linhas = preg_split('/\r\n|\r|\n/', trim($conteudo));
+        $header = array_shift($linhas);
+        $linhas = array_filter($linhas, fn($l) => trim($l) !== '');
+
+        if (!$this->headerValido($header)) {
+            return response()->json([
+                'valido' => false,
+                'erro'   => 'O arquivo não parece ser um CSV do SILOMS. Verifique se o arquivo contém as colunas Nº BMP e Nº SISPAT (mínimo 15 colunas separadas por ponto e vírgula).',
+            ]);
+        }
+
+        // Coleta todas as dependências únicas (coluna 0)
+        $dependencias = [];
+        foreach ($linhas as $linha) {
+            $c   = str_getcsv(trim($linha), ';');
+            $dep = isset($c[0]) ? trim($c[0]) : '';
+            if ($dep !== '') $dependencias[$dep] = true;
+        }
+
+        return response()->json([
+            'valido'       => true,
+            'dependencias' => array_keys($dependencias),
+            'total_linhas' => count($linhas),
+        ]);
+    }
+
+    public function criarUnidade(Request $request)
+    {
+        $request->validate([
+            'csv'       => 'required|file|mimes:csv,txt|max:30720',
+            'nome'      => 'required|string|max:200|unique:unidades,nome',
+            'senha_ini' => 'required|string|min:4|max:50',
+            'senha_adm' => 'required|string',
+        ], [
+            'nome.unique'      => 'Já existe uma unidade com este nome. Procure-a no primeiro select da página de login e faça o acesso normalmente.',
+            'nome.required'    => 'Informe o nome da unidade.',
+            'senha_ini.required' => 'Informe a senha inicial dos setores.',
+            'senha_ini.min'    => 'A senha deve ter pelo menos 4 caracteres.',
+            'senha_adm.required' => 'Informe a senha de administrador.',
+        ]);
+
+        // Verifica senha_adm
+        $senhaAdm = Setor::whereNotNull('senha_adm')->value('senha_adm');
+        if (!$senhaAdm || $request->senha_adm !== $senhaAdm) {
+            return back()->withErrors(['senha_adm' => 'Senha de administrador incorreta.'])->withInput();
+        }
+
+        set_time_limit(300);
+        ini_set('memory_limit', '512M');
+
+        $conteudo = file_get_contents($request->file('csv')->getRealPath());
+        if (!mb_check_encoding($conteudo, 'UTF-8')) {
+            $conteudo = mb_convert_encoding($conteudo, 'UTF-8', 'Windows-1252');
+        }
+
+        $linhas = preg_split('/\r\n|\r|\n/', trim($conteudo));
+        $header = array_shift($linhas);
+        $linhas = array_filter($linhas, fn($l) => trim($l) !== '');
+
+        if (!$this->headerValido($header)) {
+            return back()->withErrors(['csv' => 'O arquivo não é um CSV válido do SILOMS. Verifique se o arquivo contém as colunas Nº BMP e Nº SISPAT (mínimo 15 colunas separadas por ponto e vírgula).'])->withInput();
+        }
+
+        if (count($linhas) === 0) {
+            return back()->withErrors(['csv' => 'O arquivo está vazio ou sem dados após o cabeçalho.'])->withInput();
+        }
+
+        DB::transaction(function () use ($request, $linhas) {
+            // 1. Criar a Unidade
+            $unidade = Unidade::create(['nome' => $request->nome]);
+
+            $agora     = now();
+            $lote      = [];
+            $loteSize  = 500;
+            $setoresMap = []; // dependencia => setor_id (criados sob demanda)
+
+            foreach ($linhas as $linha) {
+                $c = str_getcsv(trim($linha), ';');
+                if (count($c) < 15) continue;
+
+                $dep = $this->ns($c[0]) ?? $request->nome;
+
+                // 2. Cria o Setor para esta dependência se ainda não existe
+                if (!isset($setoresMap[$dep])) {
+                    $setor = Setor::create([
+                        'nome'       => $dep,
+                        'sigla'      => mb_strtoupper(mb_substr($dep, 0, 10)),
+                        'senha'      => $request->senha_ini,
+                        'unidade_id' => $unidade->id,
+                    ]);
+                    $setoresMap[$dep] = $setor->id;
+                }
+
+                // 3. Monta o registro de material
+                $lote[] = [
+                    'dependencia'       => $dep,
+                    'unidade_id'        => $unidade->id,
+                    'conta'             => $this->ns($c[1]),
+                    'classe'            => $this->ns($c[2]),
+                    'num_bmp'           => $this->intVal($c[3]),
+                    'nomenclatura'      => $this->ns($c[4]),
+                    'num_serie'         => $this->ns($c[5]),
+                    'num_pn'            => $this->ns($c[6]),
+                    'num_sispat'        => $this->ns($c[7]),
+                    'fcg'               => $this->ns($c[8]),
+                    'etiqueta_metalica' => $this->ns($c[9]),
+                    'quantidade'        => $this->intVal($c[10]) ?? 1,
+                    'valor_atualizado'  => $this->dec($c[11]),
+                    'valor_depreciacao' => $this->dec($c[12]),
+                    'valor_liquido'     => $this->dec($c[13]),
+                    'situacao'          => $this->ns($c[14]),
+                    'created_at'        => $agora,
+                    'updated_at'        => $agora,
+                ];
+
+                if (count($lote) >= $loteSize) {
+                    DB::table('materiais')->insert($lote);
+                    $lote = [];
+                }
+            }
+
+            if (!empty($lote)) {
+                DB::table('materiais')->insert($lote);
+            }
+        });
+
+        $unidade = Unidade::where('nome', $request->nome)->first();
+        $qtdSetores = $unidade->setores()->count();
+
+        return redirect()->route('login')
+            ->with('sucesso', "Unidade \"{$unidade->nome}\" criada com {$qtdSetores} setor(es). Você já pode acessá-la no login.");
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private function headerValido(string $header): bool
+    {
+        $h = mb_strtoupper($header);
+        $colunas = str_getcsv($h, ';');
+        return str_contains($h, 'BMP')
+            && str_contains($h, 'SISPAT')
+            && count($colunas) >= 15;
+    }
+
+    private function ns(?string $val): ?string
+    {
+        $v = trim((string)$val);
+        return $v === '' ? null : $v;
+    }
+
+    private function intVal(?string $val): ?int
+    {
+        $v = trim((string)$val);
+        return is_numeric($v) ? (int)$v : null;
+    }
+
+    private function dec(?string $val): float
+    {
+        $v = str_replace('.', '', trim((string)$val));
+        $v = str_replace(',', '.', $v);
+        return is_numeric($v) ? (float)$v : 0.0;
+    }
+}
