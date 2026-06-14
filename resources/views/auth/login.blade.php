@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         body { background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%); min-height: 100vh; display:flex; }
-        body > .container { margin: auto; padding: 2rem 0; }
+        body > .container { margin: auto; padding: 2rem 0 calc(2rem + env(safe-area-inset-bottom, 0px)); }
         .card { border:none; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,.25); }
         .logo-area { background: #0d47a1; border-radius: 16px 16px 0 0; padding: 1.5rem 2rem; text-align: center; }
         .logo-area h2 { color: #fff; font-weight: 700; letter-spacing: .05rem; margin:0; }
@@ -17,9 +17,10 @@
         .btn-login { border-radius: 8px; font-weight: 600; }
         .select-setor { transition: opacity .2s; }
         .select-setor.loading { opacity: .5; }
-        select[size] { height: auto !important; max-height: 130px; overflow-y: auto; }
-        select[size] option { padding: .35rem .75rem; }
         .step-label { font-size: .7rem; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: .04rem; }
+        @media (max-width: 767px) {
+            body > .container { padding-bottom: 5rem; }
+        }
     </style>
 </head>
 <body>
@@ -61,7 +62,7 @@
                         {{-- Passo 2: Setor/Dependência (carregado via AJAX) --}}
                         <div class="mb-2">
                             <div class="step-label mb-1">2. Setor / Dependência</div>
-                            <select name="setor_id" id="selectSetor" class="form-select select-setor" size="5" required disabled>
+                            <select name="setor_id" id="selectSetor" class="form-select select-setor" required disabled>
                                 <option value="">— selecione a unidade primeiro —</option>
                             </select>
                         </div>
@@ -93,7 +94,7 @@
                                     <option value="{{ $unidade->id }}">{{ $unidade->nome }}</option>
                                 @endforeach
                             </select>
-                            <select name="setor_id" id="selectSetorLeitura" class="form-select form-select-sm" size="4" disabled>
+                            <select name="setor_id" id="selectSetorLeitura" class="form-select form-select-sm" disabled>
                                 <option value="">— selecione a unidade primeiro —</option>
                             </select>
                         </div>
