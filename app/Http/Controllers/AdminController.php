@@ -112,15 +112,15 @@ class AdminController extends Controller
         if (!$this->headerValido($header)) {
             return response()->json([
                 'valido' => false,
-                'erro'   => 'O arquivo não parece ser um CSV do SILOMS. Verifique se o arquivo contém as colunas Nº BMP e Nº SISPAT (mínimo 15 colunas separadas por ponto e vírgula).',
+                'erro'   => 'O arquivo não parece ser um CSV do SILOMS. Verifique se o arquivo contém as colunas idPatrimonio e setor (mínimo 14 colunas separadas por vírgula).',
             ]);
         }
 
-        // Coleta todas as dependências únicas (coluna 0)
+        // Coleta todas as dependências únicas (coluna 2: setor)
         $dependencias = [];
         foreach ($linhas as $linha) {
-            $c   = str_getcsv(trim($linha), ';');
-            $dep = isset($c[0]) ? trim($c[0]) : '';
+            $c   = str_getcsv(trim($linha));
+            $dep = isset($c[2]) ? trim($c[2]) : '';
             if ($dep !== '') $dependencias[$dep] = true;
         }
 
@@ -160,7 +160,7 @@ class AdminController extends Controller
         $linhas = array_filter($linhas, fn($l) => trim($l) !== '');
 
         if (!$this->headerValido($header)) {
-            return back()->withErrors(['csv' => 'O arquivo não é um CSV válido do SILOMS. Verifique se o arquivo contém as colunas Nº BMP e Nº SISPAT (mínimo 15 colunas separadas por ponto e vírgula).'])->withInput();
+            return back()->withErrors(['csv' => 'O arquivo não é um CSV válido do SILOMS. Verifique se o arquivo contém as colunas idPatrimonio e setor (mínimo 14 colunas separadas por vírgula).'])->withInput();
         }
 
         if (count($linhas) === 0) {
@@ -174,16 +174,20 @@ class AdminController extends Controller
                 'senha_adm' => $request->senha_adm,
             ]);
 
-            $agora     = now();
-            $lote      = [];
-            $loteSize  = 500;
-            $setoresMap = []; // dependencia => setor_id (criados sob demanda)
+            $agora      = now();
+            $lote       = [];
+            $loteSize   = 500;
+            $setoresMap = [];
 
+            // Novo formato SILOMS (vírgula, 14 colunas):
+            // 0:idPatrimonio  1:unidadeImplantou  2:setor  3:unidadeSetor  4:sigilo
+            // 5:situacao  6:cdClasse  7:dsClasse  8:contaContabil  9:subElemento
+            // 10:descricao  11:nrPn  12:nrSerie  13:dataImplantacao
             foreach ($linhas as $linha) {
-                $c = str_getcsv(trim($linha), ';');
-                if (count($c) < 15) continue;
+                $c = str_getcsv(trim($linha));
+                if (count($c) < 14) continue;
 
-                $dep = $this->ns($c[0]) ?? $request->nome;
+                $dep = $this->ns($c[2]) ?? $request->nome;
 
                 // 2. Cria o Setor para esta dependência se ainda não existe
                 if (!isset($setoresMap[$dep])) {
@@ -200,20 +204,16 @@ class AdminController extends Controller
                 $lote[] = [
                     'dependencia'       => $dep,
                     'unidade_id'        => $unidade->id,
-                    'conta'             => $this->ns($c[1]),
-                    'classe'            => $this->ns($c[2]),
-                    'num_bmp'           => $this->intVal($c[3]),
-                    'nomenclatura'      => $this->ns($c[4]),
-                    'num_serie'         => $this->ns($c[5]),
-                    'num_pn'            => $this->ns($c[6]),
-                    'num_sispat'        => $this->ns($c[7]),
-                    'fcg'               => $this->ns($c[8]),
-                    'etiqueta_metalica' => $this->ns($c[9]),
-                    'quantidade'        => $this->intVal($c[10]) ?? 1,
-                    'valor_atualizado'  => $this->dec($c[11]),
-                    'valor_depreciacao' => $this->dec($c[12]),
-                    'valor_liquido'     => $this->dec($c[13]),
-                    'situacao'          => $this->ns($c[14]),
+                    'unidade_implantou' => $this->ns($c[1]),
+                    'conta'             => $this->ns($c[8]),
+                    'classe'            => $this->ns($c[7]),
+                    'num_bmp'           => $this->intVal($c[0]),
+                    'nomenclatura'      => $this->ns($c[10]),
+                    'num_serie'         => $this->ns($c[12]),
+                    'num_pn'            => $this->ns($c[11]),
+                    'sigilo'            => $this->ns($c[4]),
+                    'situacao'          => $this->ns($c[5]),
+                    'data_implantacao'  => $this->dateVal($c[13]),
                     'created_at'        => $agora,
                     'updated_at'        => $agora,
                 ];
@@ -240,11 +240,11 @@ class AdminController extends Controller
 
     private function headerValido(string $header): bool
     {
-        $h = mb_strtoupper($header);
-        $colunas = str_getcsv($h, ';');
-        return str_contains($h, 'BMP')
-            && str_contains($h, 'SISPAT')
-            && count($colunas) >= 15;
+        $h = mb_strtoupper(trim($header));
+        $colunas = str_getcsv($h);
+        return str_contains($h, 'IDPATRIMONIO')
+            && str_contains($h, 'SETOR')
+            && count($colunas) >= 14;
     }
 
     private function ns(?string $val): ?string
@@ -257,6 +257,19 @@ class AdminController extends Controller
     {
         $v = trim((string)$val);
         return is_numeric($v) ? (int)$v : null;
+    }
+
+    private function dateVal(?string $val): ?string
+    {
+        $v = trim((string)$val);
+        if ($v === '') return null;
+        if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $v, $m)) {
+            return "{$m[3]}-{$m[2]}-{$m[1]}";
+        }
+        if (preg_match('/^\d{4}-\d{2}-\d{2}/', $v)) {
+            return substr($v, 0, 10);
+        }
+        return null;
     }
 
     private function dec(?string $val): float

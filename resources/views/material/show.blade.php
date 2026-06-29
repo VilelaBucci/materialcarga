@@ -43,19 +43,7 @@
                         <div class="small">{{ $material->num_pn ?? '—' }}</div>
                     </div>
                     <div class="col-6">
-                        <div class="field-label">Nº SISPAT</div>
-                        <div class="small">{{ $material->num_sispat ?? '—' }}</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="field-label">Etiqueta Metálica</div>
-                        <div class="small">{{ $material->etiqueta_metalica ?? '—' }}</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="field-label">FCG</div>
-                        <div class="small">{{ $material->fcg ?? '—' }}</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="field-label">Conta</div>
+                        <div class="field-label">Conta Contábil</div>
                         <div class="small">{{ $material->conta ?? '—' }}</div>
                     </div>
                     <div class="col-6">
@@ -63,11 +51,19 @@
                         <div class="small">{{ $material->classe ?? '—' }}</div>
                     </div>
                     <div class="col-6">
-                        <div class="field-label">Quantidade</div>
-                        <div class="small">{{ $material->quantidade ?? '—' }}</div>
+                        <div class="field-label">Sigilo</div>
+                        <div class="small">{{ $material->sigilo ?? '—' }}</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="field-label">Data Implantação</div>
+                        <div class="small">{{ $material->data_implantacao?->format('d/m/Y') ?? '—' }}</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="field-label">Unidade Implantou</div>
+                        <div class="small">{{ $material->unidade_implantou ?? '—' }}</div>
                     </div>
                     <div class="col-12">
-                        <div class="field-label">Dependência</div>
+                        <div class="field-label">Dependência / Setor</div>
                         <div class="small">{{ $material->dependencia ?? '—' }}</div>
                     </div>
                 </div>
@@ -127,26 +123,6 @@
             </div>
         </div>
 
-        {{-- Valores --}}
-        <div class="card">
-            <div class="card-header py-2"><i class="bi bi-currency-dollar"></i> Valores</div>
-            <div class="card-body">
-                <div class="row g-2">
-                    <div class="col-12">
-                        <div class="field-label">Valor Atualizado</div>
-                        <div class="small">R$ {{ number_format($material->valor_atualizado, 2, ',', '.') }}</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="field-label">Depreciação Acum.</div>
-                        <div class="small">R$ {{ number_format($material->valor_depreciacao, 2, ',', '.') }}</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="field-label">Valor Líquido</div>
-                        <div class="small fw-bold">R$ {{ number_format($material->valor_liquido, 2, ',', '.') }}</div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     {{-- Fotos --}}

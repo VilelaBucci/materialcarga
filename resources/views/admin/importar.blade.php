@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h6 class="mb-0 fw-bold"><i class="bi bi-file-earmark-arrow-up"></i> Importar CSV (SISPAT)</h6>
+    <h6 class="mb-0 fw-bold"><i class="bi bi-file-earmark-arrow-up"></i> Importar CSV (SILOMS)</h6>
     <a href="{{ route('admin.setores') }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left"></i> Voltar
     </a>
@@ -44,7 +44,7 @@
             </div>
             <div class="card-body">
                 <p class="text-muted small mb-3">
-                    Selecione o arquivo CSV exportado do SISPAT (delimitado por ponto e vírgula, codificação Windows-1252).
+                    Selecione o arquivo CSV exportado do SILOMS (delimitado por vírgula, com coluna <strong>idPatrimonio</strong> e <strong>setor</strong>).
                     Todos os registros atuais serão copiados para o backup antes da importação.
                 </p>
 

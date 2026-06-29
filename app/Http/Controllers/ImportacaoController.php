@@ -52,7 +52,7 @@ class ImportacaoController extends Controller
         $linhas = array_filter($linhas, fn($l) => trim($l) !== '');
 
         if (!$this->headerValido($header)) {
-            return back()->withErrors(['csv' => 'O arquivo não parece ser um CSV do SILOMS. Verifique se o arquivo contém as colunas Nº BMP e Nº SISPAT (mínimo 15 colunas separadas por ponto e vírgula).']);
+            return back()->withErrors(['csv' => 'O arquivo não parece ser um CSV do SILOMS. Verifique se o arquivo contém as colunas idPatrimonio e setor (mínimo 14 colunas separadas por vírgula).']);
         }
 
         if (count($linhas) === 0) {
@@ -65,14 +65,16 @@ class ImportacaoController extends Controller
 
         DB::statement("
             INSERT INTO materiais_backup
-                (backup_at, backup_label, material_id, unidade_id, dependencia, conta, classe, num_bmp,
-                 nomenclatura, num_serie, fcg, num_pn, num_sispat, etiqueta_metalica,
-                 quantidade, valor_atualizado, valor_depreciacao, valor_liquido,
-                 situacao, em_uso, funcionando, mais_informacoes, responsavel_id, local_id)
-            SELECT ?, ?, id, unidade_id, dependencia, conta, classe, num_bmp,
-                nomenclatura, num_serie, fcg, num_pn, num_sispat, etiqueta_metalica,
-                quantidade, valor_atualizado, valor_depreciacao, valor_liquido,
-                situacao, em_uso, funcionando, mais_informacoes, responsavel_id, local_id
+                (backup_at, backup_label, material_id, unidade_id, dependencia, unidade_implantou,
+                 conta, classe, num_bmp, nomenclatura, num_serie, fcg, num_pn, num_sispat,
+                 etiqueta_metalica, quantidade, valor_atualizado, valor_depreciacao, valor_liquido,
+                 sigilo, data_implantacao, situacao, em_uso, funcionando, mais_informacoes,
+                 responsavel_id, local_id)
+            SELECT ?, ?, id, unidade_id, dependencia, unidade_implantou,
+                conta, classe, num_bmp, nomenclatura, num_serie, fcg, num_pn, num_sispat,
+                etiqueta_metalica, quantidade, valor_atualizado, valor_depreciacao, valor_liquido,
+                sigilo, data_implantacao, situacao, em_uso, funcionando, mais_informacoes,
+                responsavel_id, local_id
             FROM materiais
             WHERE unidade_id = ?
         ", [$agora, $backupLabel, $unidadeId]);
@@ -92,25 +94,28 @@ class ImportacaoController extends Controller
             ->where('unidade_id', $unidadeId)
             ->pluck('id')->flip()->toArray();
 
-        // ── 4. Processar CSV — chave única: Nº BMP ───────────────────────────
-        $atualizados      = 0;
-        $inseridos        = 0;
-        $idsMatchados     = [];
-        $loteInsert       = [];
-        $loteSize         = 500;
-        $bmpVistos        = [];
-        $setoresChecados  = []; // cache para evitar queries repetidas de setor
+        // ── 4. Processar CSV — novo formato SILOMS (vírgula, 14 colunas) ─────
+        // 0:idPatrimonio  1:unidadeImplantou  2:setor  3:unidadeSetor  4:sigilo
+        // 5:situacao  6:cdClasse  7:dsClasse  8:contaContabil  9:subElemento
+        // 10:descricao  11:nrPn  12:nrSerie  13:dataImplantacao
+        $atualizados     = 0;
+        $inseridos       = 0;
+        $idsMatchados    = [];
+        $loteInsert      = [];
+        $loteSize        = 500;
+        $bmpVistos       = [];
+        $setoresChecados = [];
 
         foreach ($linhas as $linha) {
-            $c = str_getcsv(trim($linha), ';');
-            if (count($c) < 15) continue;
+            $c = str_getcsv(trim($linha));
+            if (count($c) < 14) continue;
 
-            $numBmp = $this->intVal($c[3]);
+            $numBmp = $this->intVal($c[0]);
             if (!$numBmp) continue;
             if (isset($bmpVistos[$numBmp])) continue;
 
-            $depCsv = $this->ns($c[0]);
-            if (!$depCsv) continue; // linha sem dependência é ignorada
+            $depCsv = $this->ns($c[2]);
+            if (!$depCsv) continue;
 
             $bmpVistos[$numBmp] = true;
 
@@ -141,20 +146,16 @@ class ImportacaoController extends Controller
             $csvFields = [
                 'dependencia'       => $depCsv,
                 'unidade_id'        => $unidadeId,
-                'conta'             => $this->ns($c[1]),
-                'classe'            => $this->ns($c[2]),
+                'unidade_implantou' => $this->ns($c[1]),
+                'conta'             => $this->ns($c[8]),
+                'classe'            => $this->ns($c[7]),
                 'num_bmp'           => $numBmp,
-                'nomenclatura'      => $this->ns($c[4]),
-                'num_serie'         => $this->ns($c[5]),
-                'num_pn'            => $this->ns($c[6]),
-                'num_sispat'        => $this->ns($c[7]),
-                'fcg'               => $this->ns($c[8]),
-                'etiqueta_metalica' => $this->ns($c[9]),
-                'quantidade'        => $this->intVal($c[10]) ?? 1,
-                'valor_atualizado'  => $this->dec($c[11]),
-                'valor_depreciacao' => $this->dec($c[12]),
-                'valor_liquido'     => $this->dec($c[13]),
-                'situacao'          => $this->ns($c[14]),
+                'nomenclatura'      => $this->ns($c[10]),
+                'num_serie'         => $this->ns($c[12]),
+                'num_pn'            => $this->ns($c[11]),
+                'sigilo'            => $this->ns($c[4]),
+                'situacao'          => $this->ns($c[5]),
+                'data_implantacao'  => $this->dateVal($c[13]),
             ];
 
             if (isset($idxBmp[$numBmp])) {
@@ -209,11 +210,11 @@ class ImportacaoController extends Controller
 
     private function headerValido(string $header): bool
     {
-        $h = mb_strtoupper($header);
-        $colunas = str_getcsv($h, ';');
-        return str_contains($h, 'BMP')
-            && str_contains($h, 'SISPAT')
-            && count($colunas) >= 15;
+        $h = mb_strtoupper(trim($header));
+        $colunas = str_getcsv($h);
+        return str_contains($h, 'IDPATRIMONIO')
+            && str_contains($h, 'SETOR')
+            && count($colunas) >= 14;
     }
 
     private function ns(?string $val): ?string
@@ -226,6 +227,19 @@ class ImportacaoController extends Controller
     {
         $v = trim((string)$val);
         return is_numeric($v) ? (int)$v : null;
+    }
+
+    private function dateVal(?string $val): ?string
+    {
+        $v = trim((string)$val);
+        if ($v === '') return null;
+        if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $v, $m)) {
+            return "{$m[3]}-{$m[2]}-{$m[1]}";
+        }
+        if (preg_match('/^\d{4}-\d{2}-\d{2}/', $v)) {
+            return substr($v, 0, 10);
+        }
+        return null;
     }
 
     private function dec(?string $val): float

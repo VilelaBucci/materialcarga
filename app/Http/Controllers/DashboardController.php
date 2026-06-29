@@ -24,12 +24,12 @@ class DashboardController extends Controller
         }
 
         $totais = [
-            'total'      => (clone $query)->count(),
-            'ativos'     => (clone $query)->where('situacao', 'A')->count(),
-            'em_reparo'  => (clone $query)->where('situacao', 'R')->count(),
-            'paralisados'=> (clone $query)->where('situacao', 'P')->count(),
-            'sem_local'  => (clone $query)->whereNull('local_id')->count(),
-            'sem_funcionar' => (clone $query)->where('funcionando', 'NÃO')->count(),
+            'total'        => (clone $query)->count(),
+            'ativos'       => (clone $query)->whereIn('situacao', ['A', 'Em Uso'])->count(),
+            'em_reparo'    => (clone $query)->whereIn('situacao', ['R', 'Em Reparo'])->count(),
+            'paralisados'  => (clone $query)->where('situacao', 'A Alienar')->count(),
+            'sem_local'    => (clone $query)->whereNull('local_id')->count(),
+            'sem_funcionar'=> (clone $query)->where('funcionando', 'NÃO')->count(),
         ];
 
         $por_local = (clone $query)

@@ -56,8 +56,8 @@
                 </div>
                 <div class="card-body">
                     <p class="text-muted small mb-3">
-                        Selecione o arquivo CSV exportado do SILOMS/SISPAT referente a esta unidade.
-                        O formato deve ser o mesmo utilizado na importação de dados (campos separados por ponto e vírgula).
+                        Selecione o arquivo CSV exportado do SILOMS referente a esta unidade.
+                        O formato deve conter as colunas <strong>idPatrimonio</strong> e <strong>setor</strong>, separadas por vírgula.
                     </p>
 
                     <div class="drop-zone" id="dropZone" onclick="document.getElementById('inputCsv').click()">

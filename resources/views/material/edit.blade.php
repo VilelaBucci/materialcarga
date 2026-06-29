@@ -41,7 +41,7 @@
                         <div class="small">{{ $material->num_serie ?? '—' }}</div>
                     </div>
                     <div class="col-6">
-                        <div class="field-label">Conta</div>
+                        <div class="field-label">Conta Contábil</div>
                         <div class="small">{{ $material->conta ?? '—' }}</div>
                     </div>
                     <div class="col-6">
@@ -49,8 +49,8 @@
                         <div class="small">{{ $material->classe ?? '—' }}</div>
                     </div>
                     <div class="col-6">
-                        <div class="field-label">Nº SISPAT</div>
-                        <div class="small">{{ $material->num_sispat ?? '—' }}</div>
+                        <div class="field-label">Sigilo</div>
+                        <div class="small">{{ $material->sigilo ?? '—' }}</div>
                     </div>
                     <div class="col-6">
                         <div class="field-label">Dependência</div>
@@ -74,10 +74,13 @@
                         <label class="field-label">Situação</label>
                         <select name="situacao" class="form-select form-select-sm">
                             <option value="">— Indefinida —</option>
-                            <option value="A" {{ $material->situacao=='A'?'selected':'' }}>A</option>
-                            <option value="R" {{ $material->situacao=='R'?'selected':'' }}>R</option>
-                            <option value="P" {{ $material->situacao=='P'?'selected':'' }}>P</option>
-                            <option value="D" {{ $material->situacao=='D'?'selected':'' }}>D</option>
+                            <option value="Em Uso"          {{ in_array($material->situacao, ['A','Em Uso'])         ? 'selected' : '' }}>Em Uso</option>
+                            <option value="Em Reparo"       {{ in_array($material->situacao, ['R','Em Reparo'])      ? 'selected' : '' }}>Em Reparo</option>
+                            <option value="A Alienar"       {{ in_array($material->situacao, ['D','A Alienar'])      ? 'selected' : '' }}>A Alienar</option>
+                            <option value="Estoque Interno" {{ $material->situacao=='Estoque Interno'                ? 'selected' : '' }}>Estoque Interno</option>
+                            <option value="Em Trânsito"     {{ $material->situacao=='Em Trânsito'                    ? 'selected' : '' }}>Em Trânsito</option>
+                            <option value="Paralisado"      {{ in_array($material->situacao, ['P','Paralisado'])     ? 'selected' : '' }}>Paralisado</option>
+                            <option value="Desativado"      {{ $material->situacao=='Desativado'                     ? 'selected' : '' }}>Desativado</option>
                         </select>
                     </div>
 
