@@ -4,7 +4,13 @@
 <div class="card">
     <div class="card-header py-2 d-flex justify-content-between align-items-center">
         <span><i class="bi bi-boxes"></i> Material de Carga</span>
-        <span class="text-muted small">{{ $materiais->total() }} item(ns)</span>
+        <div class="d-flex align-items-center gap-2">
+            <span class="text-muted small">{{ $materiais->total() }} item(ns)</span>
+            <a href="{{ route('material.pdf', request()->query()) }}" target="_blank"
+                class="btn btn-sm btn-outline-danger py-0" title="Exportar PDF (filtros atuais, máx 2000)">
+                <i class="bi bi-file-earmark-pdf"></i> PDF
+            </a>
+        </div>
     </div>
 
     {{-- Filtros --}}
@@ -73,6 +79,18 @@
                         @foreach($dependencias as $dep)
                             <option value="{{ $dep }}" {{ request('dependencia')==$dep?'selected':'' }}>
                                 {{ $dep }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
+                @if($selecoes->isNotEmpty())
+                <div class="col-6 col-md-3">
+                    <select name="selecao_id" class="form-select form-select-sm">
+                        <option value="">Grupo</option>
+                        @foreach($selecoes as $sel)
+                            <option value="{{ $sel->id }}" {{ request('selecao_id')==$sel->id?'selected':'' }}>
+                                {{ $sel->nome }}
                             </option>
                         @endforeach
                     </select>

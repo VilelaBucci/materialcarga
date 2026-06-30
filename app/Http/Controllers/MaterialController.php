@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Material;
 use App\Models\Local;
 use App\Models\Responsavel;
+use App\Models\Selecao;
 use App\Models\Foto;
 use App\Models\Reparo;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -16,6 +18,7 @@ class MaterialController extends Controller
     public function index(Request $request)
     {
         $setor     = session('setor_nome');
+        $setorId   = session('setor_id');
         $unidadeId = session('unidade_id');
         $isAdmin   = session('is_admin', false);
         $verTodos  = $isAdmin && session('ver_todos', false);
@@ -24,7 +27,6 @@ class MaterialController extends Controller
             ->where('unidade_id', $unidadeId)
             ->when(!$verTodos, fn($q) => $q->where('dependencia', $setor));
 
-        // Filtro por setor (modo global admin)
         if ($verTodos && $request->filled('dependencia')) {
             $query->where('dependencia', $request->dependencia);
         }
@@ -34,9 +36,7 @@ class MaterialController extends Controller
             $query->where(function($q) use ($busca) {
                 $q->where('nomenclatura', 'like', $busca)
                   ->orWhere('num_bmp', 'like', $busca)
-                  ->orWhere('num_serie', 'like', $busca)
-                  ->orWhere('etiqueta_metalica', 'like', $busca)
-                  ->orWhere('num_sispat', 'like', $busca);
+                  ->orWhere('num_serie', 'like', $busca);
             });
         }
 
@@ -60,6 +60,10 @@ class MaterialController extends Controller
             $query->whereNull('local_id');
         }
 
+        if ($request->filled('selecao_id')) {
+            $query->whereHas('selecoes', fn($q) => $q->where('selecoes.id', $request->selecao_id));
+        }
+
         if (!$request->boolean('incluir_duradouro')) {
             $query->where('conta', 'not like', '%87 - MATERIAL DE CONSUMO DE USO DURADOURO%');
         }
@@ -72,27 +76,75 @@ class MaterialController extends Controller
         $responsaveis = Responsavel::when(!$verTodos, fn($q) => $q->where('setor', $setor))
             ->orderBy('nome')->get();
 
+        $selecoes = Selecao::where('setor_id', $setorId)->orderBy('nome')->get();
+
         $dependencias = $verTodos
             ? DB::table('materiais')
                 ->where('unidade_id', $unidadeId)
                 ->whereNotNull('dependencia')
-                ->distinct()
-                ->orderBy('dependencia')
-                ->pluck('dependencia')
+                ->distinct()->orderBy('dependencia')->pluck('dependencia')
             : collect();
 
-        return view('material.index', compact('materiais', 'locais', 'responsaveis', 'dependencias', 'isAdmin', 'verTodos'));
+        return view('material.index', compact(
+            'materiais', 'locais', 'responsaveis', 'selecoes', 'dependencias', 'isAdmin', 'verTodos'
+        ));
+    }
+
+    public function pdf(Request $request)
+    {
+        $setor     = session('setor_nome');
+        $setorId   = session('setor_id');
+        $unidadeId = session('unidade_id');
+        $isAdmin   = session('is_admin', false);
+        $verTodos  = $isAdmin && session('ver_todos', false);
+
+        $query = Material::with(['local', 'responsavel', 'selecoes'])
+            ->where('unidade_id', $unidadeId)
+            ->when(!$verTodos, fn($q) => $q->where('dependencia', $setor));
+
+        if ($verTodos && $request->filled('dependencia')) {
+            $query->where('dependencia', $request->dependencia);
+        }
+        if ($request->filled('busca')) {
+            $busca = '%' . $request->busca . '%';
+            $query->where(function($q) use ($busca) {
+                $q->where('nomenclatura', 'like', $busca)->orWhere('num_bmp', 'like', $busca)->orWhere('num_serie', 'like', $busca);
+            });
+        }
+        if ($request->filled('situacao'))     $query->where('situacao', $request->situacao);
+        if ($request->filled('local_id'))     $query->where('local_id', $request->local_id);
+        if ($request->filled('responsavel_id')) $query->where('responsavel_id', $request->responsavel_id);
+        if ($request->filled('funcionando'))  $query->where('funcionando', $request->funcionando);
+        if ($request->filled('sem_local'))    $query->whereNull('local_id');
+        if ($request->filled('selecao_id')) {
+            $query->whereHas('selecoes', fn($q) => $q->where('selecoes.id', $request->selecao_id));
+        }
+        if (!$request->boolean('incluir_duradouro')) {
+            $query->where('conta', 'not like', '%87 - MATERIAL DE CONSUMO DE USO DURADOURO%');
+        }
+
+        $materiais  = $query->orderBy('num_bmp')->limit(2000)->get();
+        $selecaoNome = $request->filled('selecao_id')
+            ? Selecao::find($request->selecao_id)?->nome
+            : null;
+        $titulo = $selecaoNome ?? ($request->filled('situacao') ? $request->situacao : 'Material de Carga');
+
+        $pdf = Pdf::loadView('material.pdf', compact('materiais', 'titulo', 'setor', 'verTodos'))
+            ->setPaper('a4', 'landscape');
+
+        return $pdf->download('relacao-' . now()->format('Y-m-d') . '.pdf');
     }
 
     public function show(Material $material)
     {
-        $material->load(['local', 'responsavel', 'fotos', 'reparos']);
+        $material->load(['local', 'responsavel', 'fotos', 'reparos', 'selecoes']);
         return view('material.show', compact('material'));
     }
 
     public function edit(Material $material)
     {
         $setor    = session('setor_nome');
+        $setorId  = session('setor_id');
         $isAdmin  = session('is_admin', false);
         $verTodos = $isAdmin && session('ver_todos', false);
 
@@ -102,7 +154,11 @@ class MaterialController extends Controller
         $responsaveis = Responsavel::when(!$verTodos, fn($q) => $q->where('setor', $setor))
             ->orderBy('nome')->get();
 
-        return view('material.edit', compact('material', 'locais', 'responsaveis'));
+        $selecoes = Selecao::where('setor_id', $setorId)->orderBy('nome')->get();
+
+        $material->load('selecoes');
+
+        return view('material.edit', compact('material', 'locais', 'responsaveis', 'selecoes'));
     }
 
     public function update(Request $request, Material $material)
@@ -112,14 +168,15 @@ class MaterialController extends Controller
             'responsavel_id'  => 'nullable|exists:responsaveis,id',
             'em_uso'          => 'nullable|in:SIM,NÃO',
             'funcionando'     => 'nullable|in:SIM,NÃO',
-            'situacao'        => 'nullable|in:A,D,P,R',
             'mais_informacoes'=> 'nullable|string|max:5000',
         ]);
 
         $material->update($request->only([
-            'local_id', 'responsavel_id', 'em_uso',
-            'funcionando', 'situacao', 'mais_informacoes',
+            'local_id', 'responsavel_id', 'em_uso', 'funcionando', 'mais_informacoes',
         ]));
+
+        $selecaoIds = array_filter(array_map('intval', (array)$request->input('selecoes', [])));
+        $material->selecoes()->sync($selecaoIds);
 
         return redirect()->route('material.show', $material)
             ->with('sucesso', 'Material atualizado com sucesso.');
@@ -148,7 +205,6 @@ class MaterialController extends Controller
     public function deleteFoto(Foto $foto)
     {
         Storage::disk('public')->delete($foto->caminho);
-        $material = $foto->material_id;
         $foto->delete();
         return back()->with('sucesso', 'Foto removida.');
     }
@@ -170,8 +226,7 @@ class MaterialController extends Controller
             'observacoes'      => $request->observacoes,
         ]);
 
-        // Atualiza situação para R (Em Reparo)
-        $material->update(['situacao' => 'R']);
+        $material->update(['situacao' => 'Em Reparo']);
 
         return back()->with('sucesso', 'Reparo registrado.');
     }
@@ -183,12 +238,11 @@ class MaterialController extends Controller
             'data_conclusao' => now()->toDateString(),
         ]);
 
-        // Se não há mais reparos em andamento, volta para Ativo
         $emAndamento = Reparo::where('material_id', $reparo->material_id)
             ->where('status', 'em_andamento')->count();
 
         if ($emAndamento === 0) {
-            $reparo->material->update(['situacao' => 'A']);
+            $reparo->material->update(['situacao' => 'Em Uso']);
         }
 
         return back()->with('sucesso', 'Reparo concluído.');

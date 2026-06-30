@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\LocalController;
 use App\Http\Controllers\ResponsavelController;
+use App\Http\Controllers\SelecaoController;
 use App\Models\Setor;
 use App\Models\Unidade;
 use Illuminate\Support\Facades\Route;
@@ -45,8 +46,9 @@ Route::middleware('setor')->group(function () {
     Route::get('/admin/importar', [ImportacaoController::class, 'formulario'])->name('admin.importar');
     Route::post('/admin/importar', [ImportacaoController::class, 'importar'])->name('admin.importar.post');
 
-    // Material - visualização
+    // Material - visualização e PDF
     Route::get('/material',            [MaterialController::class, 'index'])->name('material.index');
+    Route::get('/material-pdf',        [MaterialController::class, 'pdf'])->name('material.pdf');
     Route::get('/material/{material}', [MaterialController::class, 'show'])->name('material.show');
 
     // Material - edição (requer pode_editar)
@@ -62,5 +64,6 @@ Route::middleware('setor')->group(function () {
 
         Route::resource('/locais',       LocalController::class)->except(['create', 'edit', 'show'])->parameters(['locais' => 'local']);
         Route::resource('/responsaveis', ResponsavelController::class)->except(['create', 'edit', 'show'])->parameters(['responsaveis' => 'responsavel']);
+        Route::resource('/selecoes',     SelecaoController::class)->except(['create', 'edit', 'show'])->parameters(['selecoes' => 'selecao']);
     });
 });

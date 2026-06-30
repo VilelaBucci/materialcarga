@@ -29,13 +29,17 @@ class ResponsavelController extends Controller
             'especialidade'=> 'nullable|string|max:10',
         ]);
 
-        Responsavel::create([
+        $resp = Responsavel::create([
             'nome'          => $request->nome,
             'graduacao'     => $request->graduacao,
             'especialidade' => $request->especialidade,
             'setor'         => session('setor_nome'),
         ]);
 
+        if ($request->expectsJson()) {
+            $label = trim(($resp->graduacao ? $resp->graduacao . ' ' : '') . $resp->nome);
+            return response()->json(['id' => $resp->id, 'nome' => $label]);
+        }
         return redirect()->route('responsaveis.index')->with('sucesso', 'Responsável adicionado.');
     }
 

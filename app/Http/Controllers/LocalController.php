@@ -23,15 +23,16 @@ class LocalController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'nome'  => 'required|string|max:200',
-        ]);
+        $request->validate(['nome' => 'required|string|max:200']);
 
-        Local::create([
+        $local = Local::create([
             'nome'  => $request->nome,
             'setor' => session('setor_nome'),
         ]);
 
+        if ($request->expectsJson()) {
+            return response()->json(['id' => $local->id, 'nome' => $local->nome]);
+        }
         return redirect()->route('locais.index')->with('sucesso', 'Local criado.');
     }
 

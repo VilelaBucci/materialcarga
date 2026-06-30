@@ -93,6 +93,9 @@
             <a href="{{ route('responsaveis.index') }}" class="nav-link {{ request()->routeIs('responsaveis.*') ? 'active' : '' }}">
                 <i class="bi bi-person-badge"></i> Responsáveis
             </a>
+            <a href="{{ route('selecoes.index') }}" class="nav-link {{ request()->routeIs('selecoes.*') ? 'active' : '' }}">
+                <i class="bi bi-tags"></i> Grupos
+            </a>
             @endif
 
             @if(session('is_admin'))
@@ -193,6 +196,9 @@
         <a href="{{ route('responsaveis.index') }}" class="nav-link">
             <i class="bi bi-person-badge"></i> Responsáveis
         </a>
+        <a href="{{ route('selecoes.index') }}" class="nav-link">
+            <i class="bi bi-tags"></i> Grupos
+        </a>
         @endif
         @if(session('is_admin'))
         <a href="{{ route('admin.setores') }}" class="nav-link">
@@ -238,6 +244,9 @@
         </a>
         <a href="{{ route('responsaveis.index') }}" class="text-center text-white text-decoration-none" style="font-size:.65rem">
             <i class="bi bi-person-badge d-block fs-5"></i>Responsáveis
+        </a>
+        <a href="{{ route('selecoes.index') }}" class="text-center text-white text-decoration-none" style="font-size:.65rem">
+            <i class="bi bi-tags d-block fs-5"></i>Grupos
         </a>
         @endif
     </div>

@@ -44,6 +44,11 @@ class Material extends Model
         return $this->hasMany(Reparo::class)->orderByDesc('created_at');
     }
 
+    public function selecoes()
+    {
+        return $this->belongsToMany(Selecao::class, 'material_selecao');
+    }
+
     public function getSituacaoLabelAttribute(): string
     {
         return $this->situacao ?? '—';

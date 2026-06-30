@@ -113,6 +113,16 @@
                             @endif
                         </div>
                     </div>
+                    @if($material->selecoes->isNotEmpty())
+                    <div class="col-12">
+                        <div class="field-label">Grupos</div>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach($material->selecoes as $sel)
+                                <span class="badge bg-info text-dark">{{ $sel->nome }}</span>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
                     @if($material->mais_informacoes)
                     <div class="col-12">
                         <div class="field-label">Observações</div>
