@@ -8,7 +8,6 @@ use App\Models\Responsavel;
 use App\Models\Selecao;
 use App\Models\Foto;
 use App\Models\Reparo;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -123,16 +122,13 @@ class MaterialController extends Controller
             $query->where('conta', 'not like', '%87 - MATERIAL DE CONSUMO DE USO DURADOURO%');
         }
 
-        $materiais  = $query->orderBy('num_bmp')->limit(2000)->get();
+        $materiais   = $query->orderBy('num_bmp')->limit(2000)->get();
         $selecaoNome = $request->filled('selecao_id')
             ? Selecao::find($request->selecao_id)?->nome
             : null;
         $titulo = $selecaoNome ?? ($request->filled('situacao') ? $request->situacao : 'Material de Carga');
 
-        $pdf = Pdf::loadView('material.pdf', compact('materiais', 'titulo', 'setor', 'verTodos'))
-            ->setPaper('a4', 'landscape');
-
-        return $pdf->download('relacao-' . now()->format('Y-m-d') . '.pdf');
+        return view('material.pdf', compact('materiais', 'titulo', 'setor', 'verTodos'));
     }
 
     public function show(Material $material)
