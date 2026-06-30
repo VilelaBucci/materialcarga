@@ -8,6 +8,7 @@ use App\Models\Responsavel;
 use App\Models\Selecao;
 use App\Models\Foto;
 use App\Models\Reparo;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -128,7 +129,10 @@ class MaterialController extends Controller
             : null;
         $titulo = $selecaoNome ?? ($request->filled('situacao') ? $request->situacao : 'Material de Carga');
 
-        return view('material.pdf', compact('materiais', 'titulo', 'setor', 'verTodos'));
+        $pdf = Pdf::loadView('material.pdf', compact('materiais', 'titulo', 'setor', 'verTodos'))
+            ->setPaper('a4', 'landscape');
+
+        return $pdf->download('relacao-' . now()->format('Y-m-d') . '.pdf');
     }
 
     public function show(Material $material)
