@@ -33,13 +33,14 @@
         <thead>
             <tr>
                 <th style="width:6%">BMP</th>
-                <th style="width:28%">Nomenclatura</th>
-                <th style="width:14%">Dependência</th>
-                <th style="width:10%">Local</th>
-                <th style="width:12%">Responsável</th>
+                <th style="width:22%">Nomenclatura</th>
+                <th style="width:12%">Dependência</th>
+                <th style="width:9%">Local</th>
+                <th style="width:11%">Responsável</th>
                 <th style="width:7%">Situação</th>
                 <th style="width:8%">Nº Série</th>
-                <th style="width:15%">Grupos</th>
+                <th style="width:12%">Grupos</th>
+                <th style="width:13%">Observações</th>
             </tr>
         </thead>
         <tbody>
@@ -64,6 +65,7 @@
                 </td>
                 <td>{{ $m->num_serie ?? '—' }}</td>
                 <td>{{ $m->selecoes->pluck('nome')->join(', ') ?: '—' }}</td>
+                <td style="font-size:7pt;color:#555">{{ $m->mais_informacoes ?? '—' }}</td>
             </tr>
             @empty
             <tr>
