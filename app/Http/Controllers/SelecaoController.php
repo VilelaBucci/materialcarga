@@ -10,6 +10,7 @@ class SelecaoController extends Controller
     public function index()
     {
         if (!session('pode_editar')) abort(403);
+        if (!session('setor_id')) return $this->semSetor();
         $setorId  = session('setor_id');
         $selecoes = Selecao::where('setor_id', $setorId)
             ->withCount('materiais')
@@ -21,6 +22,7 @@ class SelecaoController extends Controller
     public function store(Request $request)
     {
         if (!session('pode_editar')) abort(403);
+        if (!session('setor_id')) return $this->semSetor();
         $request->validate(['nome' => 'required|string|max:100']);
 
         $selecao = Selecao::create([
@@ -52,5 +54,12 @@ class SelecaoController extends Controller
         $nome = $selecao->nome;
         $selecao->delete();
         return back()->with('sucesso', "Grupo \"{$nome}\" removido.");
+    }
+
+    // Admin que entrou direto em todos os setores não tem um setor dono dos grupos
+    private function semSetor()
+    {
+        return redirect()->route('dashboard')
+            ->with('erro', 'Os grupos são de cada setor. Para criar ou gerenciar grupos, entre em um setor.');
     }
 }

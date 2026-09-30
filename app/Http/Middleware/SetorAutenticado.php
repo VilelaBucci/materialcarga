@@ -9,7 +9,8 @@ class SetorAutenticado
 {
     public function handle(Request $request, Closure $next)
     {
-        if (!session('setor_id')) {
+        // Setor escolhido no login, ou admin que entrou direto em todos os setores
+        if (!session('setor_id') && !session('ver_todos')) {
             return redirect()->route('login');
         }
         return $next($request);

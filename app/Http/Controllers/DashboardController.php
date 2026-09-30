@@ -10,6 +10,7 @@ class DashboardController extends Controller
     public function index()
     {
         $setor     = session('setor_nome');
+        $setorId   = session('setor_id');
         $unidadeId = session('unidade_id');
         $isAdmin   = session('is_admin', false);
 
@@ -35,9 +36,9 @@ class DashboardController extends Controller
         $por_local = (clone $query)
             ->selectRaw('local_id, COUNT(*) as qtd')
             ->with('local')
-            ->where(function($q) use ($setor, $verTodos) {
+            ->where(function($q) use ($setorId, $verTodos) {
                 $q->whereNull('local_id')
-                  ->orWhereHas('local', fn($s) => $s->when(!$verTodos, fn($s2) => $s2->where('setor', $setor)));
+                  ->orWhereHas('local', fn($s) => $s->when(!$verTodos, fn($s2) => $s2->doSetor($setorId)));
             })
             ->groupBy('local_id')
             ->orderByDesc('qtd')

@@ -16,11 +16,11 @@ class Setor extends Model
 
     public function locais()
     {
-        return $this->hasMany(Local::class, 'setor', 'nome');
+        return $this->belongsToMany(Local::class, 'local_setor');
     }
 
     public function responsaveis()
     {
-        return $this->hasMany(Responsavel::class, 'setor', 'nome');
+        return $this->belongsToMany(Responsavel::class, 'responsavel_setor');
     }
 }

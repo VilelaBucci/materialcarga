@@ -55,7 +55,7 @@
                 @if(session('unidade_nome') && session('unidade_nome') !== session('setor_nome'))
                     {{ session('unidade_nome') }} /
                 @endif
-                {{ session('setor_sigla') ?? session('setor_nome') }}
+                {{ session('setor_sigla') ?? session('setor_nome') ?? 'Todos os setores' }}
                 @if(session('is_admin')) <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem">ADMIN</span> @endif
                 @if(!session('pode_editar')) <span class="badge bg-secondary ms-1" style="font-size:.65rem">LEITURA</span> @endif
             </span>
@@ -93,9 +93,11 @@
             <a href="{{ route('responsaveis.index') }}" class="nav-link {{ request()->routeIs('responsaveis.*') ? 'active' : '' }}">
                 <i class="bi bi-person-badge"></i> Responsáveis
             </a>
+            @if(session('setor_id'))
             <a href="{{ route('selecoes.index') }}" class="nav-link {{ request()->routeIs('selecoes.*') ? 'active' : '' }}">
                 <i class="bi bi-tags"></i> Grupos
             </a>
+            @endif
             @endif
 
             @if(session('is_admin'))
@@ -114,6 +116,7 @@
             <a href="{{ route('admin.importar') }}" class="nav-link {{ request()->routeIs('admin.importar*') ? 'active' : '' }}">
                 <i class="bi bi-file-earmark-arrow-up"></i> Importar CSV
             </a>
+            @if(session('setor_id'))
             <form action="{{ route('admin.global') }}" method="POST" class="px-2 mt-1">
                 @csrf
                 @if(session('ver_todos'))
@@ -126,6 +129,13 @@
                 </button>
                 @endif
             </form>
+            @else
+            <div class="px-2 mt-1">
+                <a href="{{ route('login') }}" class="btn btn-sm btn-warning w-100">
+                    <i class="bi bi-building"></i> Escolher um Setor
+                </a>
+            </div>
+            @endif
             @endif
 
             <div class="sidebar-section mt-3">Sessão</div>
@@ -133,7 +143,7 @@
                 @if(session('unidade_nome') && session('unidade_nome') !== session('setor_nome'))
                     <small class="text-white-50 d-block">{{ Str::limit(session('unidade_nome'), 28) }}</small>
                 @endif
-                <small class="text-white-50">{{ Str::limit(session('setor_nome'), 30) }}</small>
+                <small class="text-white-50">{{ Str::limit(session('setor_nome') ?? 'Todos os setores', 30) }}</small>
             </div>
             <form action="{{ route('logout') }}" method="POST" class="px-3 mt-2">
                 @csrf
@@ -165,10 +175,14 @@
         @if(session('is_admin') && session('ver_todos'))
         <div class="alert alert-warning py-2 mb-3 d-flex justify-content-between align-items-center">
             <span><i class="bi bi-globe"></i> <strong>Modo Global</strong> — visualizando todos os setores</span>
+            @if(session('setor_id'))
             <form action="{{ route('admin.global') }}" method="POST" class="mb-0">
                 @csrf
                 <button class="btn btn-sm btn-warning"><i class="bi bi-building"></i> Voltar ao Setor</button>
             </form>
+            @else
+            <a href="{{ route('login') }}" class="btn btn-sm btn-warning"><i class="bi bi-building"></i> Escolher um Setor</a>
+            @endif
         </div>
         @endif
 
@@ -196,9 +210,11 @@
         <a href="{{ route('responsaveis.index') }}" class="nav-link">
             <i class="bi bi-person-badge"></i> Responsáveis
         </a>
+        @if(session('setor_id'))
         <a href="{{ route('selecoes.index') }}" class="nav-link">
             <i class="bi bi-tags"></i> Grupos
         </a>
+        @endif
         @endif
         @if(session('is_admin'))
         <a href="{{ route('admin.setores') }}" class="nav-link">
@@ -216,6 +232,7 @@
         </a>
         @endif
         <div class="px-3 mt-1">
+            @if(session('setor_id'))
             <form action="{{ route('admin.global') }}" method="POST">
                 @csrf
                 @if(session('ver_todos'))
@@ -224,6 +241,9 @@
                 <button class="btn btn-sm btn-outline-warning w-100"><i class="bi bi-globe"></i> Ver Todos os Setores</button>
                 @endif
             </form>
+            @else
+            <a href="{{ route('login') }}" class="btn btn-sm btn-warning w-100"><i class="bi bi-building"></i> Escolher um Setor</a>
+            @endif
         </div>
         @endif
     </div>
@@ -245,9 +265,11 @@
         <a href="{{ route('responsaveis.index') }}" class="text-center text-white text-decoration-none" style="font-size:.65rem">
             <i class="bi bi-person-badge d-block fs-5"></i>Responsáveis
         </a>
+        @if(session('setor_id'))
         <a href="{{ route('selecoes.index') }}" class="text-center text-white text-decoration-none" style="font-size:.65rem">
             <i class="bi bi-tags d-block fs-5"></i>Grupos
         </a>
+        @endif
         @endif
     </div>
 </nav>

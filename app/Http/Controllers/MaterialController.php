@@ -70,13 +70,18 @@ class MaterialController extends Controller
 
         $materiais = $query->orderBy('num_bmp')->paginate(50)->withQueryString();
 
-        $locais = Local::when(!$verTodos, fn($q) => $q->where('setor', $setor))
+        $locais = Local::visiveisPara($setorId, $unidadeId, $verTodos)
             ->orderBy('nome')->get();
 
-        $responsaveis = Responsavel::when(!$verTodos, fn($q) => $q->where('setor', $setor))
+        $responsaveis = Responsavel::visiveisPara($setorId, $unidadeId, $verTodos)
             ->orderBy('nome')->get();
 
-        $selecoes = Selecao::where('setor_id', $setorId)->orderBy('nome')->get();
+        // Grupos são de cada setor; no modo todos os setores, os de todos os setores da unidade
+        $selecoes = Selecao::with('setor')
+            ->when($verTodos,
+                fn($q) => $q->whereHas('setor', fn($s) => $s->where('unidade_id', $unidadeId)),
+                fn($q) => $q->where('setor_id', $setorId))
+            ->orderBy('nome')->get();
 
         $dependencias = $verTodos
             ? DB::table('materiais')
@@ -129,6 +134,10 @@ class MaterialController extends Controller
             : null;
         $titulo = $selecaoNome ?? ($request->filled('situacao') ? $request->situacao : 'Material de Carga');
 
+        if ($verTodos) {
+            $setor = $request->filled('dependencia') ? $request->dependencia : 'Todos os setores';
+        }
+
         $pdf = Pdf::loadView('material.pdf', compact('materiais', 'titulo', 'setor', 'verTodos'))
             ->setPaper('a4', 'landscape');
 
@@ -143,22 +152,33 @@ class MaterialController extends Controller
 
     public function edit(Material $material)
     {
-        $setor    = session('setor_nome');
-        $setorId  = session('setor_id');
-        $isAdmin  = session('is_admin', false);
-        $verTodos = $isAdmin && session('ver_todos', false);
+        $unidadeId = session('unidade_id');
+        $isAdmin   = session('is_admin', false);
+        $verTodos  = $isAdmin && session('ver_todos', false);
 
-        $locais = Local::when(!$verTodos, fn($q) => $q->where('setor', $setor))
-            ->orderBy('nome')->get();
+        // Tudo gira em torno do setor do próprio material, que no modo todos os setores pode não ser o da sessão
+        $setorMaterial = $material->setorDoMaterial();
+        $setorId       = $setorMaterial?->id;
 
-        $responsaveis = Responsavel::when(!$verTodos, fn($q) => $q->where('setor', $setor))
-            ->orderBy('nome')->get();
+        // No modo todos os setores também aparecem locais e responsáveis dos outros setores da unidade;
+        // ao salvar, o escolhido passa a atender o setor do material
+        [$locais, $locaisOutros] = Local::with('setores')
+            ->visiveisPara($setorId, $unidadeId, $verTodos)
+            ->orderBy('nome')->get()
+            ->partition(fn($l) => $l->setores->contains('id', $setorId));
+
+        [$responsaveis, $responsaveisOutros] = Responsavel::with('setores')
+            ->visiveisPara($setorId, $unidadeId, $verTodos)
+            ->orderBy('nome')->get()
+            ->partition(fn($r) => $r->setores->contains('id', $setorId));
 
         $selecoes = Selecao::where('setor_id', $setorId)->orderBy('nome')->get();
 
         $material->load('selecoes');
 
-        return view('material.edit', compact('material', 'locais', 'responsaveis', 'selecoes'));
+        return view('material.edit', compact(
+            'material', 'setorMaterial', 'locais', 'locaisOutros', 'responsaveis', 'responsaveisOutros', 'selecoes'
+        ));
     }
 
     public function update(Request $request, Material $material)
@@ -175,8 +195,23 @@ class MaterialController extends Controller
             'local_id', 'responsavel_id', 'em_uso', 'funcionando', 'mais_informacoes',
         ]));
 
-        $selecaoIds = array_filter(array_map('intval', (array)$request->input('selecoes', [])));
-        $material->selecoes()->sync($selecaoIds);
+        $setorMaterial = $material->setorDoMaterial();
+
+        // Local ou responsável de outro setor passa a atender também o setor deste material
+        if ($setorMaterial) {
+            $material->local?->setores()->syncWithoutDetaching([$setorMaterial->id]);
+            $material->responsavel?->setores()->syncWithoutDetaching([$setorMaterial->id]);
+        }
+
+        // Só mexe nos grupos do setor do material, que são os que aparecem no formulário;
+        // grupos de outros setores continuam como estão
+        $gruposDoSetor = Selecao::where('setor_id', $setorMaterial?->id)->pluck('id');
+        $marcados      = $gruposDoSetor->intersect(array_map('intval', (array)$request->input('selecoes', [])));
+        $desmarcados   = $gruposDoSetor->diff($marcados);
+        if ($desmarcados->isNotEmpty()) {
+            $material->selecoes()->detach($desmarcados->all());
+        }
+        $material->selecoes()->syncWithoutDetaching($marcados->all());
 
         return redirect()->route('material.show', $material)
             ->with('sucesso', 'Material atualizado com sucesso.');
@@ -222,7 +257,7 @@ class MaterialController extends Controller
             'descricao'        => $request->descricao,
             'data_inicio'      => $request->data_inicio,
             'status'           => 'em_andamento',
-            'setor_responsavel'=> session('setor_nome'),
+            'setor_responsavel'=> session('setor_nome') ?? $material->dependencia,
             'observacoes'      => $request->observacoes,
         ]);
 

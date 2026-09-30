@@ -17,21 +17,25 @@ class AuthController extends Controller
 
     public function autenticar(Request $request)
     {
+        // "todos" no lugar do setor: admin entra direto vendo todos os setores da unidade
+        $todosSetores = $request->setor_id === 'todos';
+
         $request->validate([
             'unidade_id' => 'required|exists:unidades,id',
-            'setor_id'   => 'required|exists:setores,id',
-            'senha'      => 'nullable|string',
+            'setor_id'   => $todosSetores ? 'required' : 'required|exists:setores,id',
+            'senha'      => $todosSetores ? 'required|string' : 'nullable|string',
         ], [
             'unidade_id.required' => 'Selecione a unidade.',
             'setor_id.required'   => 'Selecione o setor.',
             'setor_id.exists'     => 'Setor inválido.',
+            'senha.required'      => 'Para entrar em todos os setores, informe a senha admin da unidade.',
         ]);
 
-        $setor   = Setor::find($request->setor_id);
+        $setor   = $todosSetores ? null : Setor::find($request->setor_id);
         $unidade = Unidade::find($request->unidade_id);
 
         // Garante que o setor pertence à unidade selecionada
-        if ((int)$setor->unidade_id !== (int)$request->unidade_id) {
+        if ($setor && (int)$setor->unidade_id !== (int)$request->unidade_id) {
             return back()->withErrors(['setor_id' => 'Setor não pertence à unidade selecionada.'])->withInput();
         }
 
@@ -41,7 +45,7 @@ class AuthController extends Controller
 
         // Sem senha, entra em modo somente leitura
         if ($request->filled('senha')) {
-            $senhaCorreta = $setor->senha && $request->senha === $setor->senha;
+            $senhaCorreta = $setor && $setor->senha && $request->senha === $setor->senha;
 
             // Senha admin da unidade — dá acesso admin a qualquer setor dessa unidade
             if ($unidade->senha_adm && $request->senha === $unidade->senha_adm) {
@@ -58,7 +62,8 @@ class AuthController extends Controller
             }
 
             if (!$senhaCorreta) {
-                return back()->withErrors(['senha' => 'Senha incorreta.'])->withInput();
+                $erro = $todosSetores ? 'Senha admin da unidade incorreta.' : 'Senha incorreta.';
+                return back()->withErrors(['senha' => $erro])->withInput();
             }
 
             $podeEditar = true;
@@ -67,13 +72,13 @@ class AuthController extends Controller
         session([
             'unidade_id'  => $unidade->id,
             'unidade_nome'=> $unidade->nome,
-            'setor_id'    => $setor->id,
-            'setor_nome'  => $setor->nome,
-            'setor_sigla' => $setor->sigla,
+            'setor_id'    => $setor?->id,
+            'setor_nome'  => $setor?->nome,
+            'setor_sigla' => $setor?->sigla,
             'is_admin'    => $isAdmin,
             'is_master'   => $isMaster,
             'pode_editar' => $podeEditar,
-            'ver_todos'   => false,
+            'ver_todos'   => $todosSetores,
         ]);
 
         return redirect()->route('dashboard');
@@ -134,6 +139,10 @@ class AuthController extends Controller
     {
         if (!session('is_admin')) {
             abort(403);
+        }
+        // Quem entrou direto em todos os setores não tem setor para onde voltar: escolhe um no login
+        if (!session('setor_id')) {
+            return redirect()->route('login');
         }
         session(['ver_todos' => !session('ver_todos', false)]);
         return redirect()->route('dashboard');

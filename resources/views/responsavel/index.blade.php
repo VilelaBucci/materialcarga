@@ -29,6 +29,7 @@
                         <th>Nome</th>
                         <th>Grad.</th>
                         <th class="d-none d-md-table-cell">Especialidade</th>
+                        <th class="d-none d-md-table-cell">Setores</th>
                         <th class="text-end">Itens</th>
                         <th></th>
                     </tr>
@@ -39,6 +40,9 @@
                         <td class="fw-semibold">{{ $resp->nome }}</td>
                         <td><span class="badge bg-secondary">{{ $resp->graduacao ?? '—' }}</span></td>
                         <td class="d-none d-md-table-cell small text-muted">{{ $resp->especialidade ?? '—' }}</td>
+                        <td class="d-none d-md-table-cell small text-muted">
+                            {{ $resp->setores->map(fn($s) => $s->sigla ?: $s->nome)->implode(', ') ?: '—' }}
+                        </td>
                         <td class="text-end"><span class="badge bg-secondary">{{ $resp->materiais_count }}</span></td>
                         <td>
                             <div class="d-flex gap-1 justify-content-end">
@@ -49,7 +53,7 @@
                                 </button>
                                 @if($resp->materiais_count === 0)
                                 <form action="{{ route('responsaveis.destroy', $resp) }}" method="POST"
-                                    onsubmit="return confirm('Remover este responsável?')">
+                                    onsubmit="return confirm('{{ !$verTodos && $resp->setores->count() > 1 ? 'Remover este responsável deste setor? Ele continua nos outros setores.' : 'Remover este responsável?' }}')">
                                     @csrf @method('DELETE')
                                     <button class="btn btn-sm btn-outline-danger py-0"><i class="bi bi-trash"></i></button>
                                 </form>
@@ -89,7 +93,7 @@
                         </div>
                     </div>
                     @empty
-                    <tr><td colspan="5" class="text-center text-muted py-4">Nenhum responsável cadastrado.</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-4">Nenhum responsável cadastrado.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -118,6 +122,15 @@
                             <input type="text" name="especialidade" class="form-control form-control-sm" maxlength="10" placeholder="Ex: BMA, BET">
                         </div>
                     </div>
+                    @if($verTodos)
+                    <label class="form-label small fw-semibold mt-2">Setor <span class="text-danger">*</span></label>
+                    <select name="setor_id" class="form-select form-select-sm" required>
+                        <option value="">Selecione o setor...</option>
+                        @foreach($setores as $setor)
+                            <option value="{{ $setor->id }}">{{ $setor->sigla ? $setor->sigla.' — ' : '' }}{{ $setor->nome }}</option>
+                        @endforeach
+                    </select>
+                    @endif
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>

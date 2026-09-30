@@ -20,7 +20,7 @@
                     <div class="text-muted small">{{ session('unidade_nome') }}</div>
                 @endif
                 <div class="fw-bold fs-5 text-primary">
-                    {{ session('setor_sigla') ? session('setor_sigla').' — ' : '' }}{{ session('setor_nome') }}
+                    {{ session('setor_sigla') ? session('setor_sigla').' — ' : '' }}{{ session('setor_nome') ?? 'Todos os setores' }}
                 </div>
             </div>
             @if(session('is_admin') && session('ver_todos'))

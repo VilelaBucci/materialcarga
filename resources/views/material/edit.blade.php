@@ -2,6 +2,9 @@
 
 @push('scripts')
 <script>
+// Local/responsável criado aqui fica vinculado ao setor do material
+const SETOR_MATERIAL = @json($setorMaterial?->id);
+
 function ajaxCreate(url, data, selectId, afterInsert) {
     fetch(url, {
         method: 'POST',
@@ -10,10 +13,10 @@ function ajaxCreate(url, data, selectId, afterInsert) {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
             'Accept': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({...data, setor_id: SETOR_MATERIAL}),
     })
-    .then(r => r.json())
-    .then(afterInsert)
+    .then(r => r.json().then(res => ({ok: r.ok, res})))
+    .then(({ok, res}) => ok ? afterInsert(res) : alert(res.erro || 'Erro ao criar. Tente novamente.'))
     .catch(() => alert('Erro ao criar. Tente novamente.'));
 }
 
@@ -51,6 +54,11 @@ document.addEventListener('DOMContentLoaded', function () {
 @endpush
 
 @section('content')
+@php
+    // Setores da unidade que um local/responsável de outro setor já atende, para identificá-lo na lista
+    $setoresDoItem = fn($item) => $item->setores->where('unidade_id', session('unidade_id'))
+        ->map(fn($s) => $s->sigla ?: $s->nome)->take(2)->implode(', ') ?: 'sem setor';
+@endphp
 <div class="d-flex align-items-center gap-2 mb-3">
     <a href="{{ route('material.show', $material) }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left"></i>
@@ -131,12 +139,26 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                         <select name="local_id" id="local_id" class="form-select form-select-sm">
                             <option value="">— Sem Local —</option>
+                            @if($locaisOutros->isNotEmpty()) <optgroup label="Deste setor"> @endif
                             @foreach($locais as $local)
                                 <option value="{{ $local->id }}" {{ $material->local_id == $local->id ? 'selected' : '' }}>
                                     {{ $local->nome }}
                                 </option>
                             @endforeach
+                            @if($locaisOutros->isNotEmpty())
+                            </optgroup>
+                            <optgroup label="De outros setores da unidade">
+                                @foreach($locaisOutros as $local)
+                                    <option value="{{ $local->id }}" {{ $material->local_id == $local->id ? 'selected' : '' }}>
+                                        {{ $local->nome }} ({{ $setoresDoItem($local) }})
+                                    </option>
+                                @endforeach
+                            </optgroup>
+                            @endif
                         </select>
+                        @if($locaisOutros->isNotEmpty())
+                        <div class="form-text">Um local de outro setor passa a atender também este setor.</div>
+                        @endif
                     </div>
 
                     {{-- Responsável --}}
@@ -150,12 +172,26 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                         <select name="responsavel_id" id="responsavel_id" class="form-select form-select-sm">
                             <option value="">— Sem Responsável —</option>
+                            @if($responsaveisOutros->isNotEmpty()) <optgroup label="Deste setor"> @endif
                             @foreach($responsaveis as $resp)
                                 <option value="{{ $resp->id }}" {{ $material->responsavel_id == $resp->id ? 'selected' : '' }}>
                                     {{ trim(($resp->graduacao ? $resp->graduacao.' ' : '').$resp->nome) }}
                                 </option>
                             @endforeach
+                            @if($responsaveisOutros->isNotEmpty())
+                            </optgroup>
+                            <optgroup label="De outros setores da unidade">
+                                @foreach($responsaveisOutros as $resp)
+                                    <option value="{{ $resp->id }}" {{ $material->responsavel_id == $resp->id ? 'selected' : '' }}>
+                                        {{ trim(($resp->graduacao ? $resp->graduacao.' ' : '').$resp->nome) }} ({{ $setoresDoItem($resp) }})
+                                    </option>
+                                @endforeach
+                            </optgroup>
+                            @endif
                         </select>
+                        @if($responsaveisOutros->isNotEmpty())
+                        <div class="form-text">Um responsável de outro setor passa a responder também por este setor.</div>
+                        @endif
                     </div>
 
                     {{-- Em Uso / Funcionando --}}
@@ -178,7 +214,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>
 
-                    {{-- Grupos --}}
+                    {{-- Grupos (do setor do material; gerenciar só de dentro do próprio setor) --}}
+                    @php $noSetorDoMaterial = session('setor_id') && session('setor_id') == $setorMaterial?->id; @endphp
                     @if($selecoes->isNotEmpty())
                     <div class="mb-3">
                         <label class="field-label">Grupos</label>
@@ -193,19 +230,25 @@ document.addEventListener('DOMContentLoaded', function () {
                             </div>
                             @endforeach
                         </div>
+                        @if($noSetorDoMaterial)
                         <div class="form-text">
                             <a href="{{ route('selecoes.index') }}" target="_blank">
                                 <i class="bi bi-pencil-square"></i> Gerenciar grupos
                             </a>
                         </div>
+                        @endif
                     </div>
                     @else
                     <div class="mb-3">
                         <label class="field-label">Grupos</label>
                         <div class="form-text">
+                            @if($noSetorDoMaterial)
                             <a href="{{ route('selecoes.index') }}" target="_blank">
                                 <i class="bi bi-plus-circle"></i> Criar grupos para este setor
                             </a>
+                            @else
+                            Nenhum grupo no setor deste material.
+                            @endif
                         </div>
                     </div>
                     @endif

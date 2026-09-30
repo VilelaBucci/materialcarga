@@ -90,7 +90,7 @@
                         <option value="">Grupo</option>
                         @foreach($selecoes as $sel)
                             <option value="{{ $sel->id }}" {{ request('selecao_id')==$sel->id?'selected':'' }}>
-                                {{ $sel->nome }}
+                                {{ $sel->nome }}{{ $verTodos && $sel->setor ? ' ('.($sel->setor->sigla ?: $sel->setor->nome).')' : '' }}
                             </option>
                         @endforeach
                     </select>

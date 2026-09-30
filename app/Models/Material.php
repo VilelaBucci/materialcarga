@@ -49,6 +49,12 @@ class Material extends Model
         return $this->belongsToMany(Selecao::class, 'material_selecao');
     }
 
+    // `dependencia` guarda o nome do setor, que só é único dentro da unidade
+    public function setorDoMaterial(): ?Setor
+    {
+        return Setor::where('nome', $this->dependencia)->where('unidade_id', $this->unidade_id)->first();
+    }
+
     public function getSituacaoLabelAttribute(): string
     {
         return $this->situacao ?? '—';

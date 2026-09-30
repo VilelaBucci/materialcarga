@@ -75,7 +75,7 @@
                             <div class="step-label mb-1">3. Senha (opcional)</div>
                             <input type="password" name="senha" id="inputSenha" class="form-control"
                                 placeholder="Senha do setor ou admin" autocomplete="current-password" disabled>
-                            <div class="form-text">Deixe em branco para entrar somente para leitura.</div>
+                            <div class="form-text" id="dicaSenha">Deixe em branco para entrar somente para leitura.</div>
                         </div>
 
                         <div class="d-grid">
@@ -105,7 +105,11 @@ const selectUnidade = document.getElementById('selectUnidade');
 const filtroSetor   = document.getElementById('filtroSetor');
 const selectSetor   = document.getElementById('selectSetor');
 const inputSenha    = document.getElementById('inputSenha');
+const dicaSenha     = document.getElementById('dicaSenha');
 const btnEntrar     = document.getElementById('btnEntrar');
+
+// Opção fixa no topo da lista: admin entra direto vendo todos os setores da unidade
+const TODOS = 'todos';
 
 // Setores da unidade escolhida: { id, label, busca }
 let setores = [];
@@ -115,14 +119,27 @@ function normalizar(texto) {
     return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
-// Senha e botão só liberam com setor escolhido; sem senha o botão avisa que a entrada é somente leitura
+// Senha e botão só liberam com setor escolhido. Sem senha o botão avisa que a entrada é somente leitura;
+// em todos os setores a senha admin é obrigatória.
 function atualizarBotao() {
     const setorOk = selectSetor.value !== '';
-    inputSenha.disabled = !setorOk;
-    btnEntrar.disabled  = !setorOk;
-    btnEntrar.innerHTML = inputSenha.value === ''
-        ? '<i class="bi bi-eye"></i> Entrar somente leitura'
-        : '<i class="bi bi-box-arrow-in-right"></i> Entrar';
+    const todos   = selectSetor.value === TODOS;
+    const semSenha = inputSenha.value === '';
+
+    inputSenha.disabled    = !setorOk;
+    btnEntrar.disabled     = !setorOk || (todos && semSenha);
+    inputSenha.placeholder = todos ? 'Senha admin da unidade' : 'Senha do setor ou admin';
+    dicaSenha.textContent  = todos
+        ? 'Todos os setores exige a senha admin da unidade.'
+        : 'Deixe em branco para entrar somente para leitura.';
+
+    if (todos) {
+        btnEntrar.innerHTML = '<i class="bi bi-globe"></i> Entrar em todos os setores';
+    } else {
+        btnEntrar.innerHTML = semSenha
+            ? '<i class="bi bi-eye"></i> Entrar somente leitura'
+            : '<i class="bi bi-box-arrow-in-right"></i> Entrar';
+    }
 }
 
 // Monta a lista com os setores que contêm todas as palavras do filtro (filtro vazio = todos).
@@ -141,10 +158,11 @@ function mostrarSetores() {
 
     selectSetor.options.length = 0;
     selectSetor.add(new Option(titulo, ''));
+    selectSetor.add(new Option('★ Todos os setores (senha admin da unidade)', TODOS));
     lista.forEach(s => selectSetor.add(new Option(s.label, s.id)));
 
     // Mantém a escolha se ela continua na lista; se o filtro deixou um só setor, já seleciona
-    if (lista.some(s => String(s.id) === selecionado)) {
+    if (selecionado === TODOS || lista.some(s => String(s.id) === selecionado)) {
         selectSetor.value = selecionado;
     } else if (palavras.length && lista.length === 1) {
         selectSetor.value = lista[0].id;

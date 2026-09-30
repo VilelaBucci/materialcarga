@@ -14,7 +14,7 @@
 </div>
 @endif
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h6 class="mb-0 fw-bold"><i class="bi bi-geo-alt"></i> Locais Setoriais</h6>
+    <h6 class="mb-0 fw-bold"><i class="bi bi-geo-alt"></i> {{ $verTodos ? 'Locais da Unidade' : 'Locais Setoriais' }}</h6>
     <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNovoLocal">
         <i class="bi bi-plus"></i> Novo Local
     </button>
@@ -27,7 +27,7 @@
                 <thead class="table-light">
                     <tr>
                         <th>Nome do Local</th>
-                        <th class="d-none d-md-table-cell">Setor</th>
+                        <th class="d-none d-md-table-cell">Setores</th>
                         <th class="text-end">Itens</th>
                         <th></th>
                     </tr>
@@ -36,7 +36,9 @@
                     @forelse($locais as $local)
                     <tr>
                         <td class="fw-semibold">{{ $local->nome }}</td>
-                        <td class="d-none d-md-table-cell small text-muted">{{ $local->setor ?? '—' }}</td>
+                        <td class="d-none d-md-table-cell small text-muted">
+                            {{ $local->setores->map(fn($s) => $s->sigla ?: $s->nome)->implode(', ') ?: '—' }}
+                        </td>
                         <td class="text-end"><span class="badge bg-secondary">{{ $local->materiais_count }}</span></td>
                         <td>
                             <div class="d-flex gap-1 justify-content-end">
@@ -47,7 +49,7 @@
                                 </button>
                                 @if($local->materiais_count === 0)
                                 <form action="{{ route('locais.destroy', $local) }}" method="POST"
-                                    onsubmit="return confirm('Remover este local?')">
+                                    onsubmit="return confirm('{{ !$verTodos && $local->setores->count() > 1 ? 'Remover este local deste setor? Ele continua nos outros setores.' : 'Remover este local?' }}')">
                                     @csrf @method('DELETE')
                                     <button class="btn btn-sm btn-outline-danger py-0"><i class="bi bi-trash"></i></button>
                                 </form>
@@ -93,6 +95,15 @@
                 <div class="modal-body">
                     <label class="form-label small fw-semibold">Nome do Local <span class="text-danger">*</span></label>
                     <input type="text" name="nome" class="form-control" required placeholder="Ex: Sala de operações, Galpão A...">
+                    @if($verTodos)
+                    <label class="form-label small fw-semibold mt-2">Setor <span class="text-danger">*</span></label>
+                    <select name="setor_id" class="form-select" required>
+                        <option value="">Selecione o setor...</option>
+                        @foreach($setores as $setor)
+                            <option value="{{ $setor->id }}">{{ $setor->sigla ? $setor->sigla.' — ' : '' }}{{ $setor->nome }}</option>
+                        @endforeach
+                    </select>
+                    @endif
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
