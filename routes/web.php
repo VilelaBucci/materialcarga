@@ -29,7 +29,6 @@ Route::post('/validar-csv',  [AdminController::class, 'validarCsv'])->name('admi
 // Auth
 Route::get('/',       [AuthController::class, 'login'])->name('login');
 Route::post('/login', [AuthController::class, 'autenticar'])->name('login.post');
-Route::post('/soLeitura', [AuthController::class, 'soLeitura'])->name('login.soLeitura');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Área autenticada

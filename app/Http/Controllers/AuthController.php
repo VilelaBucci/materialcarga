@@ -20,12 +20,11 @@ class AuthController extends Controller
         $request->validate([
             'unidade_id' => 'required|exists:unidades,id',
             'setor_id'   => 'required|exists:setores,id',
-            'senha'      => 'required|string',
+            'senha'      => 'nullable|string',
         ], [
             'unidade_id.required' => 'Selecione a unidade.',
             'setor_id.required'   => 'Selecione o setor.',
             'setor_id.exists'     => 'Setor inválido.',
-            'senha.required'      => 'Informe a senha.',
         ]);
 
         $setor   = Setor::find($request->setor_id);
@@ -36,26 +35,33 @@ class AuthController extends Controller
             return back()->withErrors(['setor_id' => 'Setor não pertence à unidade selecionada.'])->withInput();
         }
 
-        $senhaCorreta = $setor->senha && $request->senha === $setor->senha;
-        $isAdmin      = false;
-        $isMaster     = false;
+        $isAdmin    = false;
+        $isMaster   = false;
+        $podeEditar = false;
 
-        // Senha admin da unidade — dá acesso admin a qualquer setor dessa unidade
-        if ($unidade->senha_adm && $request->senha === $unidade->senha_adm) {
-            $senhaCorreta = true;
-            $isAdmin      = true;
-        }
+        // Sem senha, entra em modo somente leitura
+        if ($request->filled('senha')) {
+            $senhaCorreta = $setor->senha && $request->senha === $setor->senha;
 
-        // Senha master — acesso total a qualquer unidade/setor
-        $senhaMaster = DB::table('configuracoes')->where('chave', 'senha_master')->value('valor');
-        if ($senhaMaster && $request->senha === $senhaMaster) {
-            $senhaCorreta = true;
-            $isAdmin      = true;
-            $isMaster     = true;
-        }
+            // Senha admin da unidade — dá acesso admin a qualquer setor dessa unidade
+            if ($unidade->senha_adm && $request->senha === $unidade->senha_adm) {
+                $senhaCorreta = true;
+                $isAdmin      = true;
+            }
 
-        if (!$senhaCorreta) {
-            return back()->withErrors(['senha' => 'Senha incorreta.'])->withInput();
+            // Senha master — acesso total a qualquer unidade/setor
+            $senhaMaster = DB::table('configuracoes')->where('chave', 'senha_master')->value('valor');
+            if ($senhaMaster && $request->senha === $senhaMaster) {
+                $senhaCorreta = true;
+                $isAdmin      = true;
+                $isMaster     = true;
+            }
+
+            if (!$senhaCorreta) {
+                return back()->withErrors(['senha' => 'Senha incorreta.'])->withInput();
+            }
+
+            $podeEditar = true;
         }
 
         session([
@@ -66,7 +72,7 @@ class AuthController extends Controller
             'setor_sigla' => $setor->sigla,
             'is_admin'    => $isAdmin,
             'is_master'   => $isMaster,
-            'pode_editar' => true,
+            'pode_editar' => $podeEditar,
             'ver_todos'   => false,
         ]);
 
@@ -137,31 +143,5 @@ class AuthController extends Controller
     {
         session()->flush();
         return redirect()->route('login');
-    }
-
-    public function soLeitura(Request $request)
-    {
-        $request->validate([
-            'unidade_id' => 'required|exists:unidades,id',
-            'setor_id'   => 'required|exists:setores,id',
-        ], [
-            'unidade_id.required' => 'Selecione a unidade.',
-            'setor_id.required'   => 'Selecione o setor.',
-        ]);
-
-        $setor   = Setor::find($request->setor_id);
-        $unidade = Unidade::find($request->unidade_id);
-
-        session([
-            'unidade_id'  => $unidade->id,
-            'unidade_nome'=> $unidade->nome,
-            'setor_id'    => $setor->id,
-            'setor_nome'  => $setor->nome,
-            'setor_sigla' => $setor->sigla,
-            'is_admin'    => false,
-            'pode_editar' => false,
-        ]);
-
-        return redirect()->route('dashboard');
     }
 }

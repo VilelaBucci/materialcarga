@@ -41,7 +41,7 @@
                         </div>
                     @endif
 
-                    {{-- Login com senha --}}
+                    {{-- Login: com senha entra com as permissões do setor; sem senha, somente leitura --}}
                     <form action="{{ route('login.post') }}" method="POST" id="formLogin">
                         @csrf
 
@@ -62,45 +62,25 @@
                         {{-- Passo 2: Setor/Dependência (carregado via AJAX) --}}
                         <div class="mb-2">
                             <div class="step-label mb-1">2. Setor / Dependência</div>
+                            <input type="search" id="filtroSetor" class="form-control form-control-sm mb-1"
+                                placeholder="Filtrar: digite parte do nome ou da sigla"
+                                aria-label="Filtrar setores" autocomplete="off" disabled>
                             <select name="setor_id" id="selectSetor" class="form-select select-setor" required disabled>
                                 <option value="">— selecione a unidade primeiro —</option>
                             </select>
                         </div>
 
-                        {{-- Passo 3: Senha --}}
+                        {{-- Passo 3: Senha (opcional) --}}
                         <div class="mb-3">
-                            <div class="step-label mb-1">3. Senha</div>
+                            <div class="step-label mb-1">3. Senha (opcional)</div>
                             <input type="password" name="senha" id="inputSenha" class="form-control"
-                                placeholder="Senha do setor ou admin" required autocomplete="current-password" disabled>
+                                placeholder="Senha do setor ou admin" autocomplete="current-password" disabled>
+                            <div class="form-text">Deixe em branco para entrar somente para leitura.</div>
                         </div>
 
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary btn-login" id="btnEntrar" disabled>
                                 <i class="bi bi-box-arrow-in-right"></i> Entrar
-                            </button>
-                        </div>
-                    </form>
-
-                    <hr class="my-3">
-
-                    {{-- Somente Leitura --}}
-                    <form action="{{ route('login.soLeitura') }}" method="POST" id="formLeitura">
-                        @csrf
-                        <div class="mb-1">
-                            <div class="step-label mb-1">Somente leitura — sem senha</div>
-                            <select name="unidade_id" id="selectUnidadeLeitura" class="form-select form-select-sm mb-1">
-                                <option value="">Selecione a unidade...</option>
-                                @foreach($unidades as $unidade)
-                                    <option value="{{ $unidade->id }}">{{ $unidade->nome }}</option>
-                                @endforeach
-                            </select>
-                            <select name="setor_id" id="selectSetorLeitura" class="form-select form-select-sm" disabled>
-                                <option value="">— selecione a unidade primeiro —</option>
-                            </select>
-                        </div>
-                        <div class="d-grid mt-2">
-                            <button type="submit" class="btn btn-outline-secondary btn-sm" id="btnLeitura" disabled>
-                                <i class="bi bi-eye"></i> Visualizar sem senha
                             </button>
                         </div>
                     </form>
@@ -121,85 +101,126 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-function carregarSetores(unidadeId, targetSelectId, btnIds, callbacks) {
-    const select = document.getElementById(targetSelectId);
-    select.disabled = true;
-    select.classList.add('loading');
-    select.innerHTML = '<option>Carregando...</option>';
-    btnIds.forEach(id => document.getElementById(id).disabled = true);
+const selectUnidade = document.getElementById('selectUnidade');
+const filtroSetor   = document.getElementById('filtroSetor');
+const selectSetor   = document.getElementById('selectSetor');
+const inputSenha    = document.getElementById('inputSenha');
+const btnEntrar     = document.getElementById('btnEntrar');
+
+// Setores da unidade escolhida: { id, label, busca }
+let setores = [];
+
+// Minúsculas e sem acento, para o filtro achar "secao" em "Seção"
+function normalizar(texto) {
+    return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+// Senha e botão só liberam com setor escolhido; sem senha o botão avisa que a entrada é somente leitura
+function atualizarBotao() {
+    const setorOk = selectSetor.value !== '';
+    inputSenha.disabled = !setorOk;
+    btnEntrar.disabled  = !setorOk;
+    btnEntrar.innerHTML = inputSenha.value === ''
+        ? '<i class="bi bi-eye"></i> Entrar somente leitura'
+        : '<i class="bi bi-box-arrow-in-right"></i> Entrar';
+}
+
+// Monta a lista com os setores que contêm todas as palavras do filtro (filtro vazio = todos).
+// Recria as opções em vez de escondê-las porque o Safari do iPhone ignora <option> oculto.
+function mostrarSetores() {
+    const palavras    = normalizar(filtroSetor.value).split(/\s+/).filter(Boolean);
+    const lista       = setores.filter(s => palavras.every(p => s.busca.includes(p)));
+    const selecionado = selectSetor.value;
+
+    let titulo = 'Selecione o setor...';
+    if (palavras.length) {
+        titulo = lista.length
+            ? `Selecione o setor... (${lista.length} de ${setores.length})`
+            : 'Nenhum setor encontrado';
+    }
+
+    selectSetor.options.length = 0;
+    selectSetor.add(new Option(titulo, ''));
+    lista.forEach(s => selectSetor.add(new Option(s.label, s.id)));
+
+    // Mantém a escolha se ela continua na lista; se o filtro deixou um só setor, já seleciona
+    if (lista.some(s => String(s.id) === selecionado)) {
+        selectSetor.value = selecionado;
+    } else if (palavras.length && lista.length === 1) {
+        selectSetor.value = lista[0].id;
+    }
+    atualizarBotao();
+}
+
+function carregarSetores(unidadeId, aoCarregar) {
+    setores = [];
+    filtroSetor.value    = '';
+    filtroSetor.disabled = true;
+    selectSetor.disabled = true;
+    selectSetor.classList.add('loading');
+    selectSetor.innerHTML = '<option value="">Carregando...</option>';
+    atualizarBotao();
 
     if (!unidadeId) {
-        select.innerHTML = '<option value="">— selecione a unidade primeiro —</option>';
-        select.classList.remove('loading');
+        selectSetor.innerHTML = '<option value="">— selecione a unidade primeiro —</option>';
+        selectSetor.classList.remove('loading');
         return;
     }
 
     fetch('/api/unidade/' + unidadeId + '/setores')
         .then(r => r.json())
         .then(data => {
-            select.classList.remove('loading');
+            selectSetor.classList.remove('loading');
             if (data.length === 0) {
-                select.innerHTML = '<option value="">Nenhum setor cadastrado</option>';
+                selectSetor.innerHTML = '<option value="">Nenhum setor cadastrado</option>';
                 return;
             }
-            select.innerHTML = '<option value="">Selecione o setor...</option>';
-            data.forEach(s => {
+            setores = data.map(s => {
                 const label = (s.sigla ? s.sigla + ' — ' : '') + s.nome;
-                select.innerHTML += `<option value="${s.id}">${label}</option>`;
+                return { id: s.id, label: label, busca: normalizar(label) };
             });
-            select.disabled = false;
-            if (callbacks && callbacks.onLoaded) callbacks.onLoaded();
+            mostrarSetores();
+            filtroSetor.disabled = false;
+            selectSetor.disabled = false;
+            if (aoCarregar) aoCarregar();
         })
         .catch(() => {
-            select.classList.remove('loading');
-            select.innerHTML = '<option value="">Erro ao carregar — tente novamente</option>';
+            selectSetor.classList.remove('loading');
+            selectSetor.innerHTML = '<option value="">Erro ao carregar — tente novamente</option>';
         });
 }
 
-// Form principal
-const selectUnidade = document.getElementById('selectUnidade');
-const selectSetor   = document.getElementById('selectSetor');
-const inputSenha    = document.getElementById('inputSenha');
-const btnEntrar     = document.getElementById('btnEntrar');
-
 selectUnidade.addEventListener('change', function() {
-    inputSenha.disabled = true;
-    btnEntrar.disabled  = true;
-    carregarSetores(this.value, 'selectSetor', ['btnEntrar']);
+    carregarSetores(this.value);
+});
+
+filtroSetor.addEventListener('input', mostrarSetores);
+
+// Enter no filtro não envia o formulário: vai para a senha se já há setor escolhido, senão para a lista
+filtroSetor.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    (selectSetor.value !== '' ? inputSenha : selectSetor).focus();
 });
 
 selectSetor.addEventListener('change', function() {
-    const ok = this.value !== '';
-    inputSenha.disabled = !ok;
-    btnEntrar.disabled  = !ok;
-    if (ok) inputSenha.focus();
+    atualizarBotao();
+    if (this.value !== '') inputSenha.focus();
 });
 
-// Form somente leitura
-const selectUnidadeLeitura = document.getElementById('selectUnidadeLeitura');
-const selectSetorLeitura   = document.getElementById('selectSetorLeitura');
-const btnLeitura           = document.getElementById('btnLeitura');
+inputSenha.addEventListener('input', atualizarBotao);
 
-selectUnidadeLeitura.addEventListener('change', function() {
-    btnLeitura.disabled = true;
-    carregarSetores(this.value, 'selectSetorLeitura', ['btnLeitura']);
-});
-
-selectSetorLeitura.addEventListener('change', function() {
-    btnLeitura.disabled = this.value === '';
-});
+atualizarBotao();
 
 // Restaurar seleção ao voltar com erros (old input)
 @if(old('unidade_id'))
 document.addEventListener('DOMContentLoaded', function() {
     selectUnidade.value = '{{ old("unidade_id") }}';
-    carregarSetores('{{ old("unidade_id") }}', 'selectSetor', ['btnEntrar'], {
-        onLoaded: function() {
-            const oldSetor = '{{ old("setor_id") }}';
-            if (oldSetor) {
-                selectSetor.value = oldSetor;
-                selectSetor.dispatchEvent(new Event('change'));
-            }
+    carregarSetores('{{ old("unidade_id") }}', function() {
+        const oldSetor = '{{ old("setor_id") }}';
+        if (oldSetor) {
+            selectSetor.value = oldSetor;
+            selectSetor.dispatchEvent(new Event('change'));
         }
     });
 });
