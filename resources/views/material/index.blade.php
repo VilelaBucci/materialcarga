@@ -55,10 +55,19 @@
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
+                    <select name="em_uso" class="form-select form-select-sm">
+                        <option value="">Em uso</option>
+                        <option value="SIM"  {{ request('em_uso')=='SIM' ?'selected':'' }}>Em uso: Sim</option>
+                        <option value="NÃO"  {{ request('em_uso')=='NÃO' ?'selected':'' }}>Em uso: Não</option>
+                        <option value="nulo" {{ request('em_uso')=='nulo'?'selected':'' }}>Em uso: não informado</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
                     <select name="funcionando" class="form-select form-select-sm">
                         <option value="">Funcionando</option>
-                        <option value="SIM" {{ request('funcionando')=='SIM'?'selected':'' }}>Sim</option>
-                        <option value="NÃO" {{ request('funcionando')=='NÃO'?'selected':'' }}>Não</option>
+                        <option value="SIM"  {{ request('funcionando')=='SIM' ?'selected':'' }}>Funcionando: Sim</option>
+                        <option value="NÃO"  {{ request('funcionando')=='NÃO' ?'selected':'' }}>Funcionando: Não</option>
+                        <option value="nulo" {{ request('funcionando')=='nulo'?'selected':'' }}>Funcionando: não informado</option>
                     </select>
                 </div>
                 <div class="col-12 col-md-auto d-flex gap-1">
@@ -84,10 +93,9 @@
                     </select>
                 </div>
                 @endif
-                @if($selecoes->isNotEmpty())
                 <div class="col-6 col-md-3">
                     <select name="selecao_id" class="form-select form-select-sm">
-                        <option value="">Grupo</option>
+                        <option value="">{{ $selecoes->isEmpty() ? 'Grupo (nenhum criado)' : 'Grupo' }}</option>
                         @foreach($selecoes as $sel)
                             <option value="{{ $sel->id }}" {{ request('selecao_id')==$sel->id?'selected':'' }}>
                                 {{ $sel->nome }}{{ $verTodos && $sel->setor ? ' ('.($sel->setor->sigla ?: $sel->setor->nome).')' : '' }}
@@ -95,7 +103,6 @@
                         @endforeach
                     </select>
                 </div>
-                @endif
                 <div class="col-auto">
                     <div class="form-check mt-1">
                         <input class="form-check-input" type="checkbox" name="sem_local" value="1" id="semLocal" {{ request('sem_local')?'checked':'' }}>

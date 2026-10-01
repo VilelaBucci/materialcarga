@@ -49,6 +49,28 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('novoRespGrad').value = '';
         });
     });
+
+    // Grupo novo entra na lista já marcado
+    document.getElementById('btnSalvarGrupo').addEventListener('click', function () {
+        const nome = document.getElementById('novoGrupoNome').value.trim();
+        if (!nome) return;
+        ajaxCreate('{{ route('selecoes.store') }}', {nome}, null, function(data) {
+            const linha = document.createElement('div');
+            linha.className = 'form-check form-check-sm';
+            const caixa = Object.assign(document.createElement('input'), {
+                className: 'form-check-input', type: 'checkbox', name: 'selecoes[]',
+                value: data.id, id: 'sel' + data.id, checked: true,
+            });
+            const rotulo = Object.assign(document.createElement('label'), {
+                className: 'form-check-label small', htmlFor: 'sel' + data.id, textContent: data.nome,
+            });
+            linha.append(caixa, rotulo);
+            document.getElementById('semGrupos').before(linha);
+            document.getElementById('semGrupos').hidden = true;
+            bootstrap.Modal.getInstance(document.getElementById('modalNovoGrupo')).hide();
+            document.getElementById('novoGrupoNome').value = '';
+        });
+    });
 });
 </script>
 @endpush
@@ -214,12 +236,16 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>
 
-                    {{-- Grupos (do setor do material; gerenciar só de dentro do próprio setor) --}}
-                    @php $noSetorDoMaterial = session('setor_id') && session('setor_id') == $setorMaterial?->id; @endphp
-                    @if($selecoes->isNotEmpty())
+                    {{-- Grupos do setor do material (também no modo todos os setores) --}}
                     <div class="mb-3">
-                        <label class="field-label">Grupos</label>
-                        <div class="border rounded p-2" style="max-height:130px;overflow-y:auto">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="field-label mb-0">Grupos</label>
+                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
+                                data-bs-toggle="modal" data-bs-target="#modalNovoGrupo">
+                                <i class="bi bi-plus-circle"></i> Novo grupo
+                            </button>
+                        </div>
+                        <div class="border rounded p-2" id="listaGrupos" style="max-height:130px;overflow-y:auto">
                             @foreach($selecoes as $sel)
                             <div class="form-check form-check-sm">
                                 <input class="form-check-input" type="checkbox"
@@ -229,29 +255,16 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <label class="form-check-label small" for="sel{{ $sel->id }}">{{ $sel->nome }}</label>
                             </div>
                             @endforeach
+                            <div class="small text-muted" id="semGrupos" @if($selecoes->isNotEmpty()) hidden @endif>
+                                Nenhum grupo no setor deste material.
+                            </div>
                         </div>
-                        @if($noSetorDoMaterial)
                         <div class="form-text">
                             <a href="{{ route('selecoes.index') }}" target="_blank">
                                 <i class="bi bi-pencil-square"></i> Gerenciar grupos
                             </a>
                         </div>
-                        @endif
                     </div>
-                    @else
-                    <div class="mb-3">
-                        <label class="field-label">Grupos</label>
-                        <div class="form-text">
-                            @if($noSetorDoMaterial)
-                            <a href="{{ route('selecoes.index') }}" target="_blank">
-                                <i class="bi bi-plus-circle"></i> Criar grupos para este setor
-                            </a>
-                            @else
-                            Nenhum grupo no setor deste material.
-                            @endif
-                        </div>
-                    </div>
-                    @endif
 
                     {{-- Observações --}}
                     <div class="mb-3">
@@ -319,6 +332,30 @@ document.addEventListener('DOMContentLoaded', function () {
                 <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                 <button class="btn btn-primary btn-sm" id="btnSalvarResp">
                     <i class="bi bi-check-lg"></i> Criar e Selecionar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- Modal: Novo Grupo --}}
+<div class="modal fade" id="modalNovoGrupo" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-tags"></i> Novo Grupo</h6>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label class="form-label small fw-semibold">Nome do grupo</label>
+                <input type="text" id="novoGrupoNome" class="form-control form-control-sm"
+                    placeholder="Ex: A Descarregar, Para Auditoria..." maxlength="100" autocomplete="off">
+                <div class="form-text">O grupo fica no setor deste material{{ $setorMaterial ? ' ('.($setorMaterial->sigla ?: $setorMaterial->nome).')' : '' }}.</div>
+            </div>
+            <div class="modal-footer py-2">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary btn-sm" id="btnSalvarGrupo">
+                    <i class="bi bi-check-lg"></i> Criar e Marcar
                 </button>
             </div>
         </div>

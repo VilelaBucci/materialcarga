@@ -10,15 +10,25 @@
 
 <p class="text-muted small mb-3">
     Crie grupos para organizar e filtrar materiais (ex: "A Descarregar", "Para Auditoria").
-    Os grupos são exclusivos do seu setor.
+    {{ $verTodos ? 'Cada grupo pertence a um setor; aqui aparecem os de todos os setores da unidade.' : 'Os grupos são exclusivos do seu setor.' }}
 </p>
 
 {{-- Criar novo grupo --}}
 <div class="card mb-3">
     <div class="card-header py-2"><i class="bi bi-plus-circle"></i> Novo Grupo</div>
     <div class="card-body">
-        <form action="{{ route('selecoes.store') }}" method="POST" class="d-flex gap-2">
+        <form action="{{ route('selecoes.store') }}" method="POST" class="d-flex flex-wrap flex-md-nowrap gap-2">
             @csrf
+            @if($verTodos)
+            <select name="setor_id" class="form-select form-select-sm" required style="max-width:320px">
+                <option value="">Setor do grupo...</option>
+                @foreach($setores as $setor)
+                    <option value="{{ $setor->id }}" {{ old('setor_id') == $setor->id ? 'selected' : '' }}>
+                        {{ $setor->sigla ? $setor->sigla.' — ' : '' }}{{ $setor->nome }}
+                    </option>
+                @endforeach
+            </select>
+            @endif
             <input type="text" name="nome" class="form-control form-control-sm @error('nome') is-invalid @enderror"
                 placeholder="Nome do grupo (ex: A Descarregar)" maxlength="100" required
                 value="{{ old('nome') }}" autofocus>
@@ -40,6 +50,7 @@
             <thead class="table-light">
                 <tr>
                     <th>Nome</th>
+                    @if($verTodos)<th class="d-none d-md-table-cell">Setor</th>@endif
                     <th class="text-center">Materiais</th>
                     <th class="text-end">Ações</th>
                 </tr>
@@ -58,6 +69,9 @@
                             </button>
                         </form>
                     </td>
+                    @if($verTodos)
+                    <td class="d-none d-md-table-cell small text-muted">{{ $selecao->setor?->sigla ?: $selecao->setor?->nome }}</td>
+                    @endif
                     <td class="text-center">
                         <a href="{{ route('material.index', ['selecao_id' => $selecao->id]) }}"
                             class="badge bg-primary text-decoration-none">

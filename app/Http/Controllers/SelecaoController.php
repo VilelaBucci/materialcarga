@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Selecao;
+use App\Models\Setor;
 use Illuminate\Http\Request;
 
 class SelecaoController extends Controller
@@ -10,24 +11,39 @@ class SelecaoController extends Controller
     public function index()
     {
         if (!session('pode_editar')) abort(403);
-        if (!session('setor_id')) return $this->semSetor();
-        $setorId  = session('setor_id');
-        $selecoes = Selecao::where('setor_id', $setorId)
+        $unidadeId = session('unidade_id');
+        $verTodos  = session('is_admin') && session('ver_todos');
+
+        // Grupos são de cada setor; no modo todos os setores, os de todos os setores da unidade
+        $selecoes = Selecao::with('setor')
+            ->when($verTodos,
+                fn($q) => $q->whereHas('setor', fn($s) => $s->where('unidade_id', $unidadeId)),
+                fn($q) => $q->where('setor_id', session('setor_id')))
             ->withCount('materiais')
             ->orderBy('nome')
             ->get();
-        return view('selecao.index', compact('selecoes'));
+
+        // No modo todos os setores, o grupo novo precisa de um setor escolhido
+        $setores = $verTodos ? Setor::where('unidade_id', $unidadeId)->orderBy('nome')->get() : collect();
+
+        return view('selecao.index', compact('selecoes', 'verTodos', 'setores'));
     }
 
     public function store(Request $request)
     {
         if (!session('pode_editar')) abort(403);
-        if (!session('setor_id')) return $this->semSetor();
         $request->validate(['nome' => 'required|string|max:100']);
+
+        $setor = $this->setorParaVincular($request);
+        if (!$setor) {
+            return $request->expectsJson()
+                ? response()->json(['erro' => 'Escolha o setor do grupo.'], 422)
+                : back()->withErrors(['setor_id' => 'Escolha o setor do grupo.'])->withInput();
+        }
 
         $selecao = Selecao::create([
             'nome'     => $request->nome,
-            'setor_id' => session('setor_id'),
+            'setor_id' => $setor->id,
         ]);
 
         if ($request->expectsJson()) {
@@ -39,7 +55,7 @@ class SelecaoController extends Controller
     public function update(Request $request, Selecao $selecao)
     {
         if (!session('pode_editar')) abort(403);
-        if ($selecao->setor_id != session('setor_id') && !session('is_master')) abort(403);
+        $this->autorizar($selecao);
 
         $request->validate(['nome' => 'required|string|max:100']);
         $selecao->update(['nome' => $request->nome]);
@@ -49,17 +65,19 @@ class SelecaoController extends Controller
     public function destroy(Selecao $selecao)
     {
         if (!session('pode_editar')) abort(403);
-        if ($selecao->setor_id != session('setor_id') && !session('is_master')) abort(403);
+        $this->autorizar($selecao);
 
         $nome = $selecao->nome;
         $selecao->delete();
         return back()->with('sucesso', "Grupo \"{$nome}\" removido.");
     }
 
-    // Admin que entrou direto em todos os setores não tem um setor dono dos grupos
-    private function semSetor()
+    // Grupo do próprio setor; no modo todos os setores, de qualquer setor da unidade; master, qualquer um
+    private function autorizar(Selecao $selecao): void
     {
-        return redirect()->route('dashboard')
-            ->with('erro', 'Os grupos são de cada setor. Para criar ou gerenciar grupos, entre em um setor.');
+        $daUnidade = session('is_admin') && session('ver_todos')
+            && (int)$selecao->setor?->unidade_id === (int)session('unidade_id');
+
+        if ($selecao->setor_id != session('setor_id') && !$daUnidade && !session('is_master')) abort(403);
     }
 }

@@ -52,8 +52,13 @@ class MaterialController extends Controller
             $query->where('responsavel_id', $request->responsavel_id);
         }
 
-        if ($request->filled('funcionando')) {
-            $query->where('funcionando', $request->funcionando);
+        // Sim / Não / "nulo" = não informado
+        foreach (['em_uso', 'funcionando'] as $campo) {
+            if ($request->filled($campo)) {
+                $request->input($campo) === 'nulo'
+                    ? $query->whereNull($campo)
+                    : $query->where($campo, $request->input($campo));
+            }
         }
 
         if ($request->filled('sem_local')) {
@@ -119,7 +124,13 @@ class MaterialController extends Controller
         if ($request->filled('situacao'))     $query->where('situacao', $request->situacao);
         if ($request->filled('local_id'))     $query->where('local_id', $request->local_id);
         if ($request->filled('responsavel_id')) $query->where('responsavel_id', $request->responsavel_id);
-        if ($request->filled('funcionando'))  $query->where('funcionando', $request->funcionando);
+        foreach (['em_uso', 'funcionando'] as $campo) {
+            if ($request->filled($campo)) {
+                $request->input($campo) === 'nulo'
+                    ? $query->whereNull($campo)
+                    : $query->where($campo, $request->input($campo));
+            }
+        }
         if ($request->filled('sem_local'))    $query->whereNull('local_id');
         if ($request->filled('selecao_id')) {
             $query->whereHas('selecoes', fn($q) => $q->where('selecoes.id', $request->selecao_id));
